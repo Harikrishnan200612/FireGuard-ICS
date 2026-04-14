@@ -93,8 +93,8 @@ let systemState = {
 };
 
 // Telegram Configuration
-const TELEGRAM_TOKEN = "7864353842:AAEY9MvB801iR9j6V5zJ0gJ8_G8G_Z8K_Z8"; // Placeholder, user should update
-const CHAT_ID = "123456789"; // Placeholder, user should update
+const TELEGRAM_TOKEN = ""; //  enter your token 
+const CHAT_ID = ""; // enter your chat id
 
 function sendTelegramAlert(msg) {
   if (!TELEGRAM_TOKEN.includes("AAEY")) return; // Skip if still placeholder
