@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FireGuard ICS — Premium Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── PREMIUM LIGHT THEME (GLASSMORPHISM) ── */
+:root {
+  --bg-grad: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #e0e7ff 100%);
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-solid: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-border-drk: rgba(148, 163, 184, 0.25);
+  
+  --t1: #0f172a;
+  --t2: #334155;
+  --t3: #64748b;
+  --t4: #94a3b8;
+  
+  --red:   #e11d48;
+  --redb:  rgba(225,29,72,.15);
+  --amb:   #ea580c;
+  --ambb:  rgba(234,88,12,.15);
+  --grn:   #059669;
+  --grnb:  rgba(5,150,105,.15);
+  --blu:   #2563eb;
+  --blub:  rgba(37,99,235,.15);
+
+  --font: 'Inter', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --shadow: 0 8px 32px rgba(31, 38, 135, 0.04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { height: 100vh; overflow: hidden; background: #eef2fb; font-family: var(--font); color: var(--t1); background-size: cover; }
+.bg-mesh { position: fixed; inset: 0; background: radial-gradient(at 0% 0%, rgba(224,231,255,1) 0, transparent 50%), radial-gradient(at 50% 100%, rgba(207,250,254,0.6) 0, transparent 50%); z-index: -1; }
+
+.app { display: flex; height: 100vh; width: 100vw; overflow: hidden; backdrop-filter: blur(12px); }
+
+/* SIDEBAR */
+.sidebar { width: 260px; background: rgba(255,255,255,0.4); border-right: 1px solid var(--glass-border); padding: 24px; display: flex; flex-direction: column; transition: 0.3s; box-shadow: 1px 0 24px rgba(0,0,0,0.02); }
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; cursor: pointer; }
+.brand-log { width: 40px; height: 40px; font-size: 24px; background: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.brand h1 { font-size: 1.1rem; font-weight: 700; color: var(--t1); }
+.brand span { font-size: 0.7rem; color: var(--t3); }
+
+.nav { flex: 1; }
+.nav-item { padding: 14px 16px; border-radius: 12px; display: flex; align-items: center; gap: 12px; color: var(--t2); font-weight: 600; cursor: pointer; margin-bottom: 6px; transition: 0.2s; border: 1px solid transparent; }
+.nav-item:hover { background: rgba(255,255,255,0.7); transform: translateX(4px); }
+.nav-item.active { background: white; color: var(--blu); border-color: rgba(255,255,255,0.8); box-shadow: 0 4px 16px rgba(0,0,0,0.03); }
+
+/* CONTENT */
+.content { flex: 1; display: flex; flex-direction: column; position: relative; }
+.header { height: 70px; background: rgba(255,255,255,0.4); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; padding: 0 32px; justify-content: space-between; }
+.view-area { flex: 1; padding: 32px; overflow-y: auto; }
+.view { display: none; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.view.active { display: block; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* CARDS */
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card { background: rgba(255,255,255,0.6); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 24px; box-shadow: var(--shadow); transition: 0.3s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(31,38,135,0.06); }
+.card-tit { font-size: 0.85rem; font-weight: 700; color: var(--t3); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px; }
+
+/* KPI CARDS */
+.kpi { display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden; }
+.kpi::before { content:''; position: absolute; top:0; left:0; width: 100%; height: 4px; border-radius: 4px 4px 0 0; }
+.kpi.fire::before { background: var(--red); }
+.kpi.warn::before { background: var(--amb); }
+.kpi.safe::before { background: var(--grn); }
+.kpi-v { font-size: 2.2rem; font-weight: 700; letter-spacing: -1px; }
+
+/* SVG MAP INTERLINKED WITH DOORS */
+.map-cont { width: 100%; height: 480px; position: relative; overflow: hidden; background: rgba(255,255,255,0.5); border-radius: 20px; border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; }
+.map-svg { width: 100%; height: 100%; transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1); transform-origin: center center; }
+
+/* MAP ELEMENTS */
+.zone-group { cursor: pointer; }
+.zone-bg { fill: rgba(148,163,184,0.1); stroke: var(--t3); stroke-width: 2; transition: 0.3s; }
+.zone-group:hover .zone-bg { fill: rgba(148,163,184,0.25); filter: drop-shadow(0 4px 8px rgba(0,0,0,0.05)); }
+.zone-bg.zoomed { stroke-width: 1; fill: rgba(255,255,255,0.7); }
+.zone-text { font-family: var(--font); font-weight: 700; font-size: 16px; fill: var(--t1); pointer-events: none; }
+.door { stroke: #cbd5e1; stroke-width: 6; stroke-linecap: round; transition: 0.3s; }
+.door.open { transform-origin: center; transform: rotate(90deg); stroke: #94a3b8; }
+.dev-icon { fill: var(--t3); transition: 0.3s; }
+
+/* TOAST / MODAL */
+#toast { position: absolute; left: 50%; top: 20px; transform: translateX(-50%) translateY(-20px); background: #1e293b; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 8px; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* TASKS */
+.task-item { border-left: 4px solid var(--blu); padding: 16px; background: white; border-radius: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+.task-item.fault { border-left-color: var(--red); }
+
+/* BADGES */
+.bdg { padding: 4px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; border: 1px solid; }
+.bdg.ok { background: var(--grnb); color: var(--grn); border-color: rgba(5,150,105,0.3); }
+.bdg.err { background: var(--redb); color: var(--red); border-color: rgba(225,29,72,0.3); }
+
+</style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-log">🔥</div>
+      <div><h1>FireGuard ICS</h1><span>Premium Industrial</span></div>
+    </div>
+    <div class="nav">
+      <div class="nav-item active" onclick="nav('dash')">📊 Dashboard</div>
+      <div class="nav-item" onclick="nav('map')">🗺 Facility Map</div>
+      <div class="nav-item" onclick="nav('tasks')" id="nav-tasks">📝 My Tasks</div>
+      <div class="nav-item" onclick="nav('settings')" id="nav-sett">⚙ Settings</div>
+    </div>
+    <div style="padding:16px; background:white; border-radius:12px; text-align:center;">
+      <div id="uName" style="font-weight:700;font-size:0.9rem">User</div>
+      <div id="uRole" style="font-size:0.7rem;color:var(--t3);margin-bottom:12px">Role</div>
+      <button onclick="loginMock()" style="padding:8px 16px;width:100%;border-radius:8px;border:1px solid #e2e8f0;background:var(--bg3);cursor:pointer;font-weight:600">Switch Role</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="header">
+      <div style="font-weight:600;color:var(--t2)">System Status: <span class="bdg ok">NOMINAL</span></div>
+      <div style="display:flex;gap:16px;align-items:center">
+        <span style="font-family:var(--mono);font-size:0.8rem" id="clock">10:59:00 AM</span>
+      </div>
+    </div>
+
+    <!-- VIEWS -->
+    <div class="view-area">
+      <!-- DASHBOARD -->
+      <div id="v-dash" class="view active">
+        <div class="grid-4">
+          <div class="card kpi safe">
+            <span class="card-tit">Active Alarms</span>
+            <span class="kpi-v" style="color:var(--grn)">0</span>
+          </div>
+          <div class="card kpi warn">
+            <span class="card-tit">Fault Detects</span>
+            <span class="kpi-v" id="kpi-faults" style="color:var(--amb)">0</span>
+          </div>
+          <div class="card kpi safe">
+            <span class="card-tit">Safe Zones</span>
+            <span class="kpi-v" style="color:var(--t1)">5</span>
+          </div>
+          <div class="card kpi fire">
+            <span class="card-tit">Total Reads</span>
+            <span class="kpi-v" id="kpi-reads" style="color:var(--blu)">14,204</span>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card" style="height:350px">
+            <div class="card-tit">Live Facility Temperature</div>
+            <canvas id="mainChart"></canvas>
+          </div>
+          <div class="card" style="height:350px; overflow-y:auto">
+            <div class="card-tit">Live Fault Events & Tasks</div>
+            <div id="taskFeed">
+              <div class="task-item"><div><strong>Routine Inspect</strong><br><span style="font-size:0.75rem;color:var(--t3)">Zone A • Assigned to OP-1</span></div><span class="bdg ok">OK</span></div>
+            </div>
+            <button onclick="simFault()" style="margin-top:12px;padding:8px 16px;background:white;border:1px solid #e2e8f0;border-radius:8px;font-weight:600;cursor:pointer">Mock Fault (Admin)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAP -->
+      <div id="v-map" class="view">
+        <div class="card map-cont" id="mapCont">
+          <div id="toast"><span>✅</span> Map Zoom Active</div>
+          <!-- Advanced Interlinked Map SVG -->
+          <svg id="fMap" class="map-svg" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(148,163,184,0.15)" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <rect width="1000" height="600" fill="url(#grid)" rx="8"/>
+            
+            <!-- Zone A & B Container (Left Side) -->
+            <g class="zone-group" id="zA" onclick="zoomZone('A')" ondblclick="toastZone('A')">
+              <rect class="zone-bg" x="50" y="50" width="300" height="250" rx="12"/>
+              <text class="zone-text" x="200" y="80" text-anchor="middle">Zone A (Lobby)</text>
+              <circle class="dev-icon" cx="200" cy="180" r="16" fill-opacity="0.2" stroke="currentColor" stroke-width="2"/>
+            </g>
+
+            <g class="zone-group" id="zB" onclick="zoomZone('B')" ondblclick="toastZone('B')">
+              <rect class="zone-bg" x="50" y="300" width="300" height="250" rx="12"/>
+              <text class="zone-text" x="200" y="340" text-anchor="middle">Zone B (Hall)</text>
+              <rect class="dev-icon" x="180" y="440" width="40" height="30" rx="4" fill-opacity="0.2" stroke="currentColor" stroke-width="2"/>
+            </g>
+
+            <!-- Zone C (Center Hall) -->
+            <g class="zone-group" id="zC" onclick="zoomZone('C')" ondblclick="toastZone('C')">
+              <rect class="zone-bg" x="350" y="50" width="300" height="500" rx="12"/>
+              <text class="zone-text" x="500" y="80" text-anchor="middle">Zone C (Production)</text>
+            </g>
+
+            <!-- Zone D & E Container (Right Side) -->
+            <g class="zone-group" id="zD" onclick="zoomZone('D')" ondblclick="toastZone('D')">
+              <rect class="zone-bg" x="650" y="50" width="300" height="250" rx="12" fill="rgba(37,99,235,0.05)"/>
+              <text class="zone-text" x="800" y="80" text-anchor="middle" fill="#2563eb">Zone D [ESP32]</text>
+            </g>
+
+            <g class="zone-group" id="zE" onclick="zoomZone('E')" ondblclick="toastZone('E')">
+              <rect class="zone-bg" x="650" y="300" width="300" height="250" rx="12"/>
+              <text class="zone-text" x="800" y="340" text-anchor="middle">Zone E (Storage)</text>
+            </g>
+
+            <!-- DOORS (Connecting the zones) -->
+            <line class="door" x1="350" y1="150" x2="350" y2="200"/>
+            <line class="door" x1="350" y1="400" x2="350" y2="450"/>
+            <line class="door" x1="650" y1="150" x2="650" y2="200"/>
+            <line class="door" x1="650" y1="400" x2="650" y2="450"/>
+          </svg>
+          <button onclick="resetZoom()" style="position:absolute;bottom:20px;right:20px;padding:8px 16px;background:white;border:1px solid var(--bd2);border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1)">Reset Zoom</button>
+        </div>
+      </div>
+      
+      <!-- TASKS -->
+      <div id="v-tasks" class="view">
+        <div class="card">
+          <div class="card-tit">My Assigned Tasks</div>
+          <div id="myTasks">
+            <!-- Will be populated based on role -->
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="v-settings" class="view">
+        <div class="card">
+          <div class="card-tit">App Integrations</div>
+          <p style="font-size:0.8rem;color:var(--t3);margin-bottom:12px">Configure Telegram and ntfy App notifications.</p>
+          <input type="text" placeholder="NTFY Topic (e.g. fireguard-app)" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:12px">
+          <input type="text" placeholder="Telegram Bot Token" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:12px">
+          <button style="padding:10px 20px;background:var(--blu);color:white;border:none;border-radius:8px;font-weight:600">Save Integrations</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// --- ROLES & PERMISSIONS ---
+// Admin: All views
+// Supervisor: Dash, Map, Settings
+// User: My Tasks only
+let CRole = 'admin';
+const ROLES = {
+  'admin': { views: ['dash','map','tasks','settings'], name: 'Administrator' },
+  'sup': { views: ['dash','map','settings'], name: 'Floor Supervisor' },
+  'usr': { views: ['tasks'], name: 'Field Operator' }
+};
+
+function loginMock() {
+  const p = prompt("Enter role (admin / sup / usr):", "usr");
+  if(ROLES[p]){
+    CRole = p;
+    applyPermissions();
+  }
+}
+
+function applyPermissions() {
+  document.getElementById('uName').innerText = CRole.toUpperCase() + '-001';
+  document.getElementById('uRole').innerText = ROLES[CRole].name;
+  
+  // Hide/Show Nav tabs based on permission array
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const aid = item.getAttribute('onclick').match(/'([^']+)'/)[1];
+    if(ROLES[CRole].views.includes(aid)){
+      item.style.display = 'flex';
+    }else{
+      item.style.display = 'none';
+    }
+  });
+
+  // Switch to first allowed view
+  nav(ROLES[CRole].views[0]);
+}
+
+function nav(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('v-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+
+// --- MAP ZOOM LOGIC ---
+const mapSvg = document.getElementById('fMap');
+const origVB = "0 0 1000 600";
+let zoned = false;
+
+function zoomZone(id) {
+  event.stopPropagation();
+  const g = document.getElementById('z'+id);
+  const bbox = g.getBBox();
+  
+  // Calculate zoom box with padding
+  const pad = 60;
+  const vb = `${bbox.x - pad} ${bbox.y - pad} ${bbox.width + pad*2} ${bbox.height + pad*2}`;
+  
+  // Apply zoom transition
+  mapSvg.setAttribute('viewBox', vb);
+  zoned = true;
+
+  // Add styles to focus zone
+  document.querySelectorAll('.zone-group').forEach(el => el.style.opacity = 0.3);
+  g.style.opacity = 1;
+}
+
+function resetZoom() {
+  if(!zoned) return;
+  mapSvg.setAttribute('viewBox', origVB);
+  document.querySelectorAll('.zone-group').forEach(el => el.style.opacity = 1);
+  document.getElementById('toast').classList.remove('show');
+  zoned = false;
+}
+
+function toastZone(id) {
+  event.stopPropagation();
+  const t = document.getElementById('toast');
+  t.innerHTML = `<span>⚡</span> Zone ${id} Selected — Status: SAFE`;
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 3000);
+}
+
+// --- SIMULATION & CHART ---
+function simFault() {
+  const tFeed = document.getElementById('taskFeed');
+  const d = document.createElement('div');
+  d.className = 'task-item fault';
+  d.innerHTML = `<div><strong>Equipment Fault Detected</strong><br><span style="font-size:0.75rem;color:var(--t3)">Diagnostic Required • Zone C</span></div><span class="bdg err">FAULT</span>`;
+  tFeed.prepend(d);
+  
+  document.getElementById('kpi-faults').innerText = parseInt(document.getElementById('kpi-faults').innerText) + 1;
+  document.getElementById('myTasks').appendChild(d.cloneNode(true)); // Add to user tasks feed
+}
+
+// Init Chart
+const ctx = document.getElementById('mainChart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: ['1','2','3','4','5','6','7'],
+        datasets: [{
+            label: 'Avg Temperature (°C)',
+            data: [22, 23, 22.5, 24, 25, 23, 22.8],
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37,99,235,0.1)',
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 }
+    }
+});
+
+// Update clocks
+setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString(), 1000);
+
+// Start app
+applyPermissions();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+Γùç injecting env (0) from .env // tip: Γîÿ custom filepath { path: '/custom/path/.env' }
+C:\Users\hari4\node_modules\path-to-regexp\dist\index.js:85
+            throw new PathError(`Missing parameter name at index ${index}`, str);
+            ^
+
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at name (C:\Users\hari4\node_modules\path-to-regexp\dist\index.js:85:19)
+    at parse (C:\Users\hari4\node_modules\path-to-regexp\dist\index.js:101:59)
+    at pathToRegexp (C:\Users\hari4\node_modules\path-to-regexp\dist\index.js:263:56)
+    at Object.match (C:\Users\hari4\node_modules\path-to-regexp\dist\index.js:225:30)
+    at matcher (C:\Users\hari4\node_modules\router\lib\layer.js:86:23)
+    at new Layer (C:\Users\hari4\node_modules\router\lib\layer.js:93:62)
+    at router.route (C:\Users\hari4\node_modules\router\index.js:428:17)
+    at app.route (C:\Users\hari4\node_modules\express\lib\application.js:257:22)
+    at app.<computed> [as get] (C:\Users\hari4\node_modules\express\lib\application.js:478:22)
+    at Object.<anonymous> (C:\Users\hari4\Downloads\clade\server.js:213:5) {
+  originalPath: '*'
+}
+
+Node.js v24.14.1

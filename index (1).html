@@ -1,0 +1,3466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f0f4ff">
+<title>FireGuard ICS v2 — Industrial Fire Monitoring</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── DESIGN TOKENS ── */
+:root {
+  --bg0: #f4f6f9;
+  --bg1: rgba(255, 255, 255, 0.7);
+  --bg2: rgba(255, 255, 255, 0.5);
+  --bg3: rgba(255, 255, 255, 0.9);
+  --bg4: #e2e8f0;
+  --bd:  rgba(0, 0, 0, 0.05);
+  --bd2: rgba(0, 0, 0, 0.08);
+
+  --t1: #1e293b;
+  --t2: #475569;
+  --t3: #64748b;
+  --t4: #94a3b8;
+
+  --red:   #e53030;
+  --redb:  rgba(229,48,48,.10);
+  --redbr: rgba(229,48,48,.28);
+  --amb:   #d97706;
+  --ambb:  rgba(217,119,6,.10);
+  --ambbr: rgba(217,119,6,.30);
+  --grn:   #059669;
+  --grnb:  rgba(5,150,105,.10);
+  --grnbr: rgba(5,150,105,.28);
+  --blu:   #2563eb;
+  --blub:  rgba(37,99,235,.10);
+  --blubr: rgba(37,99,235,.28);
+
+  --accent: #2563eb;
+  --accent2: #1d4ed8;
+
+  --font:  'Inter', system-ui, sans-serif;
+  --mono:  'JetBrains Mono', monospace;
+
+  --rad:   10px;
+  --rad2:  16px;
+  --rad3:  20px;
+
+  --sb-w:  220px;
+  --sb-cw: 56px;
+  --tp-h:  52px;
+  --rp-w:  280px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg0); color: var(--t1); font-family: var(--font); font-size: 14px; }
+
+body { background: var(--bg0); backdrop-filter: blur(20px); }
+
+/* Toast Container */
+#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+.toast { background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border: 1px solid var(--bd2); box-shadow: 0 4px 16px rgba(0,0,0,0.1); padding: 12px 16px; border-radius: var(--rad); animation: slideInX 0.3s; }
+@keyframes slideInX { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
+
+/* ══════════════ LOGIN ══════════════ */
+#loginScreen {
+  position: fixed; inset: 0; z-index: 1000;
+  background: linear-gradient(135deg, #eef2fb 0%, #dbeafe 50%, #eff6ff 100%);
+  display: flex; align-items: center; justify-content: center;
+  background-image: radial-gradient(ellipse 700px 500px at 55% 40%, rgba(37,99,235,.09) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 20% 80%, rgba(5,150,105,.06) 0%, transparent 60%);
+}
+.lcard {
+  width: 380px;
+  background: var(--bg1);
+  border: 1px solid var(--bd2);
+  border-radius: var(--rad3);
+  overflow: hidden;
+}
+.lcard-hd {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  border-bottom: 1px solid var(--bd);
+  padding: 28px 28px 20px;
+  display: flex; align-items: center; gap: 14px;
+}
+.lcard-logo {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: var(--redb); border: 1px solid var(--redbr);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+.lcard-title { font-size: 1.1rem; font-weight: 600; letter-spacing: -.3px; color: #fff; }
+.lcard-sub   { font-size: .7rem; color: rgba(255,255,255,.65); font-family: var(--mono); margin-top: 2px; }
+.lcard-body  { padding: 24px 28px 28px; }
+
+.lrole-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 18px; }
+.lrole {
+  padding: 10px 6px; border-radius: var(--rad);
+  border: 1px solid var(--bd); background: var(--bg2);
+  cursor: pointer; text-align: center; transition: all .15s;
+}
+.lrole:hover { border-color: var(--bd2); background: var(--bg3); }
+.lrole.sel { border-color: var(--redbr); background: var(--redb); }
+.lrole-ic { font-size: 1.1rem; display: block; margin-bottom: 3px; }
+.lrole-nm { font-size: .68rem; font-weight: 500; color: var(--t2); }
+
+.lfi { margin-bottom: 12px; }
+.lfi label { display: block; font-size: .7rem; color: var(--t3); font-family: var(--mono); margin-bottom: 5px; letter-spacing: .5px; }
+.lfi input {
+  width: 100%; background: var(--bg2); border: 1px solid var(--bd2);
+  border-radius: var(--rad); padding: 10px 12px; font-size: .85rem;
+  color: var(--t1); font-family: var(--font); outline: none; transition: border .15s;
+}
+.lfi input:focus { border-color: var(--blubr); }
+
+.lconn { display: flex; gap: 6px; margin-bottom: 16px; }
+.lconn-btn {
+  flex: 1; padding: 8px; border-radius: var(--rad); border: 1px solid var(--bd);
+  background: var(--bg2); cursor: pointer; font-size: .72rem; color: var(--t2);
+  font-family: var(--font); transition: all .15s;
+}
+.lconn-btn:hover { border-color: var(--bd2); }
+.lconn-btn.sel { border-color: var(--blubr); background: var(--blub); color: var(--t1); }
+#hwConf { margin-bottom: 14px; display: none; }
+.hw-note { font-size: .65rem; color: var(--t3); font-family: var(--mono); margin-top: 4px; }
+
+.lbtn {
+  width: 100%; padding: 12px; border-radius: var(--rad); border: none; cursor: pointer;
+  background: var(--red); color: #fff; font-weight: 600; font-size: .9rem;
+  font-family: var(--font); letter-spacing: -.2px; transition: opacity .15s;
+}
+.lbtn:hover { opacity: .9; }
+.lerr { font-size: .7rem; color: var(--red); font-family: var(--mono); margin-top: 8px; min-height: 16px; }
+
+/* ══════════════ APP SHELL ══════════════ */
+#app { display: none; height: 100%; flex-direction: column; }
+.main { display: flex; height: 100%; overflow: hidden; }
+
+/* ══════════════ SIDEBAR ══════════════ */
+.sidebar {
+  width: var(--sb-w); flex-shrink: 0;
+  background: rgba(255,255,255,0.75);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid var(--bd2);
+  display: flex; flex-direction: column; transition: width .2s ease; overflow: hidden;
+  box-shadow: 2px 0 16px rgba(0,0,0,0.03);
+}
+.sidebar.collapsed { width: var(--sb-cw); }
+
+.sb-hd {
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; gap: 10px;
+}
+.sb-logo {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 7px;
+  background: var(--accent); color: white;
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.sb-brand { font-weight: 700; font-size: .95rem; white-space: nowrap; letter-spacing: -.3px; color: var(--t1); }
+.sb-ver   { font-size: .58rem; color: var(--t3); font-family: var(--mono); white-space: nowrap; }
+
+.nav-list { flex: 1; padding: 8px 0; overflow-y: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; margin: 1px 8px; border-radius: var(--rad);
+  cursor: pointer; transition: all .12s; white-space: nowrap; overflow: hidden;
+  color: var(--t2); font-weight: 500;
+}
+.nav-item:hover { background: var(--bg2); color: var(--t1); }
+.nav-item.active { background: var(--blub); color: var(--blu); font-weight: 600; }
+.nav-item.active .nav-ic { color: var(--blu); }
+.nav-ic { font-size: 15px; flex-shrink: 0; width: 18px; text-align: center; }
+.nav-lbl { font-size: .8rem; }
+
+.sb-ft {
+  border-top: 1px solid var(--bd); padding: 12px 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.user-badge {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 8px; border-radius: var(--rad); background: var(--bg2);
+  border: 1px solid var(--bd);
+  overflow: hidden;
+}
+.ub-name { font-size: .72rem; font-weight: 600; white-space: nowrap; color: var(--t1); }
+.ub-role { font-size: .6rem; color: var(--t3); white-space: nowrap; }
+.sb-btn {
+  padding: 7px; border-radius: var(--rad); border: 1px solid var(--bd);
+  background: var(--bg1); color: var(--t2); cursor: pointer; font-size: .72rem; font-weight: 500;
+  font-family: var(--font); transition: all .12s; width: 100%; text-align: center;
+}
+.sb-btn:hover { border-color: var(--bd2); color: var(--red); background: var(--redb); }
+
+
+/* ══════════════ CONTENT AREA ══════════════ */
+.content {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg0);
+  background-image: radial-gradient(circle at 100% 0%, rgba(37,99,235,0.04) 0%, transparent 60%);
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  height: var(--tp-h); flex-shrink: 0;
+  background: rgba(255,255,255,.85); border-bottom: 1px solid var(--bd);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; gap: 12px; padding: 0 16px;
+  box-shadow: 0 1px 8px rgba(30,58,138,.07);
+}
+.sys-pill {
+  padding: 4px 12px; border-radius: 20px; font-size: .7rem; font-weight: 600;
+  font-family: var(--mono); letter-spacing: .5px; flex-shrink: 0;
+  border: 1px solid; transition: all .3s;
+}
+.sp-ok   { color: var(--grn); background: var(--grnb); border-color: var(--grnbr); }
+.sp-warn { color: var(--amb); background: var(--ambb); border-color: var(--ambbr); }
+.sp-fire { color: var(--red); background: var(--redb); border-color: var(--redbr); animation: pulseRed 1s infinite; }
+@keyframes pulseRed { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+.tbar-sep { width: 1px; height: 20px; background: var(--bd); flex-shrink: 0; }
+.tel-bar  { display: flex; align-items: center; gap: 16px; }
+.tel-item { font-family: var(--mono); font-size: .7rem; color: var(--t3); }
+.tel-item b { color: var(--t1); font-weight: 500; }
+.tbar-time { margin-left: auto; font-family: var(--mono); font-size: .72rem; color: var(--t3); }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--grn); flex-shrink: 0;
+  animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── VIEWS ── */
+.view-wrap { flex: 1; overflow: hidden; position: relative; }
+.view { display: none; height: 100%; overflow-y: auto; padding: 20px; }
+.view.active { display: block; }
+
+/* ── STATUS BAR ── */
+.statusbar {
+  height: 28px; flex-shrink: 0;
+  background: rgba(255,255,255,.85); border-top: 1px solid var(--bd);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; gap: 16px; padding: 0 16px;
+  font-family: var(--mono); font-size: .62rem; color: var(--t3);
+  box-shadow: 0 -1px 4px rgba(30,58,138,.04);
+}
+.sbi b { color: var(--t2); font-weight: 500; }
+.sbar-sep { width: 1px; height: 12px; background: var(--bd); }
+
+/* ══════════════ CARDS & LAYOUT ══════════════ */
+.card {
+  background: #ffffff; border: 1px solid var(--bd);
+  border-radius: var(--rad2); padding: 16px;
+  box-shadow: 0 2px 12px rgba(30,58,138,.06);
+}
+.card-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-title { font-size: .75rem; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: .8px; }
+.sec-label  { font-size: .65rem; color: var(--t3); font-family: var(--mono); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
+
+/* GRID HELPERS */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+/* ══════════════ DASHBOARD VIEW ══════════════ */
+.kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
+.kpi {
+  background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--rad2); padding: 16px;
+  position: relative; overflow: hidden;
+}
+.kpi::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  border-radius: var(--rad2) var(--rad2) 0 0;
+}
+.kpi-fire::before  { background: var(--red); }
+.kpi-warn::before  { background: var(--amb); }
+.kpi-safe::before  { background: var(--grn); }
+.kpi-reads::before { background: var(--blu); }
+.kpi-label { font-size: .65rem; color: var(--t3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; font-family: var(--mono); }
+.kpi-val { font-size: 2rem; font-weight: 700; letter-spacing: -1px; }
+.kpi-sub  { font-size: .62rem; color: var(--t3); margin-top: 3px; font-family: var(--mono); }
+
+/* Sensor bars */
+.sensor-bar-wrap { margin-bottom: 14px; }
+.sensor-bar-hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.sensor-bar-nm { font-size: .75rem; font-weight: 500; }
+.sensor-bar-val { font-size: 1.2rem; font-weight: 700; font-family: var(--mono); }
+.sensor-bar-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.sensor-bar-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+.sensor-markers { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .58rem; color: var(--t4); margin-top: 3px; }
+
+/* ══════════════ ZONE MAP ══════════════ */
+.map-wrap { width: 100%; aspect-ratio: 900/480; position: relative; overflow: hidden; border-radius: var(--rad2); }
+.map-svg  { width: 100%; height: 100%; cursor: pointer; transition: transform .55s cubic-bezier(.25,1,.5,1), opacity .55s ease; transform-origin: center center; }
+.map-svg.zoomed { cursor: default; }
+
+/* Zone hover glow on SVG rects */
+.zone-hit { cursor: pointer; }
+
+/* ── ZONE FULLSCREEN OVERLAY ── */
+#zoneOverlay {
+  position: fixed; inset: 0; z-index: 600;
+  background: rgba(15,23,42,.55); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity .35s ease;
+}
+#zoneOverlay.open { opacity: 1; pointer-events: all; }
+
+.zo-card {
+  background: #fff; border: 1px solid var(--bd2);
+  border-radius: 24px; width: min(680px, 92vw);
+  box-shadow: 0 24px 80px rgba(30,58,138,.22);
+  overflow: hidden;
+  transform: scale(.92) translateY(20px);
+  transition: transform .38s cubic-bezier(.25,1,.5,1);
+}
+#zoneOverlay.open .zo-card { transform: scale(1) translateY(0); }
+
+.zo-header {
+  padding: 22px 28px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--bd);
+}
+.zo-title { font-size: 1.25rem; font-weight: 700; letter-spacing: -.4px; }
+.zo-sub   { font-size: .72rem; color: var(--t3); font-family: var(--mono); margin-top: 2px; }
+.zo-close {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--bd);
+  background: var(--bg2); color: var(--t2); cursor: pointer;
+  font-size: 1rem; display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.zo-close:hover { background: var(--redb); color: var(--red); border-color: var(--redbr); }
+
+.zo-body  { padding: 24px 28px; }
+.zo-kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px; }
+.zo-kpi {
+  background: var(--bg2); border: 1px solid var(--bd);
+  border-radius: 14px; padding: 16px; text-align: center; position: relative; overflow: hidden;
+}
+.zo-kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:3px; }
+.zo-kpi.t::before { background: var(--red); }
+.zo-kpi.s::before { background: var(--amb); }
+.zo-kpi.h::before { background: var(--blu); }
+.zo-kpi-lbl { font-size: .65rem; font-family: var(--mono); color: var(--t3); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+.zo-kpi-val { font-size: 1.9rem; font-weight: 700; letter-spacing: -1px; font-family: var(--mono); }
+.zo-kpi-unit{ font-size: .7rem; color: var(--t3); margin-top: 3px; }
+
+.zo-bars { margin-bottom: 20px; }
+.zo-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.zo-bar-lbl { font-size: .72rem; color: var(--t2); width: 90px; flex-shrink: 0; }
+.zo-bar-track { flex: 1; height: 8px; background: var(--bg4); border-radius: 4px; overflow: hidden; }
+.zo-bar-fill  { height: 100%; border-radius: 4px; transition: width .6s ease; }
+.zo-bar-val { font-family: var(--mono); font-size: .72rem; font-weight: 600; width: 72px; text-align: right; flex-shrink: 0; }
+
+.zo-equip-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.zo-equip-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 20px; border: 1px solid var(--bd);
+  background: var(--bg2); font-size: .72rem; font-weight: 500; color: var(--t2);
+}
+.zo-equip-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+.zo-status-bar {
+  margin-top: 18px; padding: 12px 16px; border-radius: 12px;
+  border: 1px solid; display: flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: .85rem;
+}
+.zo-status-bar.safe { background: var(--grnb); border-color: var(--grnbr); color: var(--grn); }
+.zo-status-bar.warn { background: var(--ambb); border-color: var(--ambbr); color: var(--amb); }
+.zo-status-bar.fire { background: var(--redb); border-color: var(--redbr); color: var(--red); }
+
+/* ── ZONE DOUBLE-CLICK TOAST (floating near zone) ── */
+#zoneToast {
+  position: fixed; z-index: 700;
+  padding: 9px 18px; border-radius: 30px;
+  font-weight: 700; font-size: .8rem; font-family: var(--mono); letter-spacing: .4px;
+  pointer-events: none; white-space: nowrap;
+  box-shadow: 0 8px 28px rgba(0,0,0,.18);
+  border: 1.5px solid;
+  transform: scale(.8) translateY(6px);
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s cubic-bezier(.25,1,.5,1);
+}
+#zoneToast.show { opacity: 1; transform: scale(1) translateY(0); }
+#zoneToast.safe { background: var(--grnb); color: var(--grn); border-color: var(--grnbr); }
+#zoneToast.warn { background: var(--ambb); color: var(--amb); border-color: var(--ambbr); }
+#zoneToast.fire { background: var(--redb); color: var(--red); border-color: var(--redbr); }
+
+/* ══════════════ ZONE LIST ══════════════ */
+.zone-item {
+  padding: 12px; border-radius: var(--rad); border: 1px solid var(--bd);
+  background: var(--bg2); margin-bottom: 8px; cursor: pointer; transition: all .12s;
+}
+.zone-item:hover { border-color: var(--bd2); background: var(--bg3); }
+@keyframes svg-pulse { 0% { opacity: 0.7; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.7; transform: scale(0.97); } }
+@keyframes zblink { 0%,100%{opacity:1} 50%{opacity:.75} }
+.zone-item.z-warn { border-color: var(--ambbr); background: var(--ambb); }
+.zone-item.z-fire { border-color: var(--redbr); background: var(--redb); animation: zblink .8s infinite; }
+@keyframes zblink { 0%,100%{opacity:1} 50%{opacity:.75} }
+
+.zi-row { display: flex; align-items: center; justify-content: space-between; }
+.zi-name { font-weight: 600; font-size: .8rem; }
+.zi-sub  { font-size: .62rem; color: var(--t3); font-family: var(--mono); }
+.zi-vals { display: flex; gap: 12px; margin-top: 6px; }
+.zi-v    { font-family: var(--mono); font-size: .72rem; color: var(--t2); }
+.zi-v b  { color: var(--t1); }
+
+/* ══════════════ BADGES ══════════════ */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 20px; font-size: .62rem; font-weight: 600;
+  border: 1px solid; font-family: var(--mono); letter-spacing: .4px;
+}
+.b-ok   { color: var(--grn); background: var(--grnb); border-color: var(--grnbr); }
+.b-warn { color: var(--amb); background: var(--ambb); border-color: var(--ambbr); }
+.b-fire { color: var(--red); background: var(--redb); border-color: var(--redbr); }
+.b-off  { color: var(--t3); background: var(--bg3); border-color: var(--bd); }
+.b-hw   { color: var(--blu); background: var(--blub); border-color: var(--blubr); }
+.b-fault{ color: var(--red); background: var(--redb); border-color: var(--redbr); animation: zblink .9s infinite; }
+.b-grn  { color: var(--grn); background: var(--grnb); border-color: var(--grnbr); }
+
+/* ══════════════ FAULT & DEVICE CARDS ══════════════ */
+.dev-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--bd); gap: 8px; }
+.dev-item.fault { background: var(--redb); border-radius: var(--rad); margin: 2px -6px; padding: 10px 6px; border-bottom: none; border: 1px solid var(--redbr); animation: zblink .9s infinite; }
+.dev-fault-btn {
+  padding: 3px 10px; border-radius: var(--rad); font-size: .6rem; font-weight: 700; font-family: var(--mono);
+  border: 1px solid; cursor: pointer; letter-spacing: .3px; transition: all .15s;
+}
+.dev-fault-btn.inject { background: var(--redb); color: var(--red); border-color: var(--redbr); }
+.dev-fault-btn.inject:hover { background: rgba(229,48,48,.25); }
+.dev-fault-btn.clear  { background: var(--grnb); color: var(--grn); border-color: var(--grnbr); }
+.dev-fault-btn.clear:hover  { background: rgba(5,150,105,.25); }
+
+/* ══════════════ TASKS VIEW ══════════════ */
+.task-view-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+.task-role-note { font-size: .68rem; font-family: var(--mono); color: var(--t3); background: var(--bg2); border: 1px solid var(--bd); border-radius: 20px; padding: 3px 10px; }
+.task-fault-banner {
+  background: var(--redb); border: 1px solid var(--redbr); border-radius: var(--rad);
+  padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px;
+  font-size: .78rem; font-weight: 600; color: var(--red);
+}
+
+/* Equipment strip (Operator view) */
+.equip-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.equip-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg2); border: 1px solid var(--bd);
+  border-radius: 10px; padding: 8px 12px; min-width: 110px;
+  transition: border-color .2s;
+}
+.equip-chip.fault { background: var(--redb); border-color: var(--redbr); animation: zblink .9s infinite; }
+.equip-chip.fault .equip-chip-nm { color: var(--red); }
+.equip-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.equip-chip-nm  { font-size: .72rem; font-weight: 600; color: var(--t1); }
+.equip-chip-st  { font-size: .58rem; font-family: var(--mono); color: var(--t3); margin-top: 1px; }
+
+/* ══════════════ BUTTONS ══════════════ */
+.btn {
+  padding: 8px 14px; border-radius: var(--rad); border: 1px solid var(--bd);
+  background: var(--bg2); color: var(--t2); cursor: pointer; font-size: .75rem;
+  font-family: var(--font); font-weight: 500; transition: all .12s; white-space: nowrap;
+}
+.btn:hover { background: var(--bg3); border-color: var(--bd2); color: var(--t1); }
+.btn-red  { background: var(--redb);  border-color: var(--redbr);  color: var(--red); }
+.btn-red:hover  { background: rgba(244,63,63,.25); }
+.btn-grn  { background: var(--grnb);  border-color: var(--grnbr);  color: var(--grn); }
+.btn-grn:hover  { background: rgba(34,211,160,.2); }
+.btn-amb  { background: var(--ambb);  border-color: var(--ambbr);  color: var(--amb); }
+.btn-amb:hover  { background: rgba(245,158,11,.2); }
+.btn-blu  { background: var(--blub);  border-color: var(--blubr);  color: var(--blu); }
+.btn-blu:hover  { background: rgba(59,130,246,.2); }
+.btn-row  { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ══════════════ LOG ══════════════ */
+.log-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 0; border-bottom: 1px solid var(--bd); font-family: var(--mono); font-size: .68rem;
+}
+.log-item:last-child { border-bottom: none; }
+.log-t   { color: var(--t4); flex-shrink: 0; width: 60px; }
+.log-msg { color: var(--t2); flex: 1; }
+.log-item.l-fire .log-msg { color: var(--red); }
+.log-item.l-warn .log-msg { color: var(--amb); }
+.log-item.l-safe .log-msg { color: var(--grn); }
+.log-item.l-info .log-msg { color: var(--blu); }
+
+/* ══════════════ ALERT LEVEL INDICATOR ══════════════ */
+.alert-level-box {
+  display: flex; gap: 4px; margin-bottom: 16px;
+}
+.al-seg {
+  flex: 1; height: 4px; border-radius: 2px; background: var(--bg3); transition: background .3s;
+}
+.al-seg.active-0 { background: var(--grn); }
+.al-seg.active-1 { background: var(--amb); }
+.al-seg.active-2 { background: var(--red); }
+
+/* ══════════════ GRAPHS ══════════════ */
+.chart-wrap { position: relative; height: 220px; margin-top: 8px; }
+.chart-wrap.lg { height: 300px; }
+
+/* ══════════════ TASKS ══════════════ */
+.task-card {
+  background: var(--bg2); border: 1px solid var(--bd);
+  border-radius: var(--rad); padding: 14px; margin-bottom: 8px;
+  cursor: pointer; transition: all .12s;
+}
+.task-card:hover { border-color: var(--bd2); background: var(--bg3); }
+.task-card.done { opacity: .5; }
+.task-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.task-nm { font-weight: 600; font-size: .8rem; flex: 1; }
+.task-prog { display: flex; gap: 3px; margin-top: 8px; }
+.task-step { height: 3px; flex: 1; border-radius: 2px; background: var(--bg4); }
+.task-step.done { background: var(--grn); }
+.task-desc { font-size: .68rem; color: var(--t3); }
+.task-zone { font-size: .62rem; color: var(--t4); font-family: var(--mono); margin-top: 3px; }
+
+/* ══════════════ EVAC ══════════════ */
+.evac-zone {
+  background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--rad); padding: 12px;
+}
+.evac-zone.evac-active { border-color: var(--ambbr); background: var(--ambb); }
+.evac-zone.fire       { border-color: var(--redbr); background: var(--redb); }
+.ez-nm   { font-weight: 600; font-size: .8rem; }
+.ez-st   { font-family: var(--mono); font-size: .68rem; margin-top: 3px; }
+.ez-rt   { font-size: .62rem; color: var(--t3); font-family: var(--mono); margin-top: 4px; }
+
+/* ══════════════ RIGHT PANEL ══════════════ */
+.rp {
+  width: var(--rp-w); flex-shrink: 0;
+  background: #ffffff; border-left: 1px solid var(--bd);
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: -2px 0 16px rgba(30,58,138,.06);
+}
+.rp-hd {
+  padding: 14px 16px; border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.rp-title { font-weight: 600; font-size: .85rem; }
+.rp-close { background: none; border: none; color: var(--t3); cursor: pointer; font-size: 1rem; padding: 2px; }
+.rp-body  { flex: 1; overflow-y: auto; padding: 16px; }
+.rp-row   { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--bd); }
+.rp-row:last-child { border-bottom: none; }
+.rp-lb    { font-size: .7rem; color: var(--t3); }
+.rp-val   { font-family: var(--mono); font-size: .75rem; font-weight: 500; }
+
+/* ══════════════ MODALS ══════════════ */
+.overlay {
+  position: fixed; inset: 0; background: rgba(30,58,138,.25); z-index: 500;
+  display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+.overlay.open { display: flex; }
+.modal {
+  background: #ffffff; border: 1px solid var(--bd2); border-radius: var(--rad3);
+  width: 420px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(30,58,138,.18);
+}
+.mdl-hd  { padding: 18px 20px 14px; border-bottom: 1px solid var(--bd); display: flex; align-items: center; justify-content: space-between; }
+.mdl-ttl { font-weight: 600; font-size: .95rem; }
+.mdl-cl  { background: none; border: none; color: var(--t3); cursor: pointer; font-size: 1.1rem; }
+.mdl-bd  { padding: 20px; overflow-y: auto; flex: 1; }
+.mdl-ft  { padding: 14px 20px; border-top: 1px solid var(--bd); display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ══════════════ CHATBOT ══════════════ */
+.chatbot {
+  position: fixed; bottom: 36px; right: 16px; width: 320px; z-index: 400;
+  background: #ffffff; border: 1px solid var(--bd2); border-radius: var(--rad3);
+  box-shadow: 0 8px 32px rgba(30,58,138,.20); display: none; flex-direction: column;
+  overflow: hidden;
+}
+.chatbot.open { display: flex; }
+.chat-hd {
+  padding: 12px 14px; background: linear-gradient(135deg, #1e3a8a, #2563eb); border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+  color: #fff;
+}
+.chat-hd-info { display: flex; align-items: center; gap: 8px; }
+.chat-ic { font-size: 1.1rem; }
+.chat-name { font-weight: 600; font-size: .8rem; color: #fff; }
+.chat-status-dot { width: 6px; height: 6px; border-radius: 50%; background: #6ee7b7; }
+.chat-body {
+  flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 260px;
+}
+.chat-msg {
+  padding: 8px 11px; border-radius: 10px; font-size: .75rem; line-height: 1.6; max-width: 85%;
+}
+.chat-msg.bot  { background: var(--bg3); color: var(--t1); align-self: flex-start; border-radius: 3px 10px 10px 10px; border: 1px solid var(--bd); }
+.chat-msg.user { background: #dbeafe; color: #1e40af; align-self: flex-end; border-radius: 10px 3px 10px 10px; border: 1px solid rgba(37,99,235,.25); }
+.chat-in-area  { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--bd); }
+.chat-in {
+  flex: 1; background: var(--bg2); border: 1px solid var(--bd2); border-radius: var(--rad);
+  padding: 7px 10px; font-size: .75rem; color: var(--t1); font-family: var(--font); outline: none;
+}
+.chat-in:focus { border-color: var(--blubr); }
+.chat-send {
+  padding: 7px 11px; border-radius: var(--rad); border: none;
+  background: var(--blub); color: var(--blu); cursor: pointer; font-size: .75rem; font-family: var(--font);
+  border: 1px solid var(--blubr); transition: all .12s;
+}
+.chat-send:hover { background: rgba(59,130,246,.2); }
+.chat-fab {
+  position: fixed; bottom: 36px; right: 16px; z-index: 399;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--blub); border: 1px solid var(--blubr);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1.2rem; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
+
+/* ══════════════ ESP32 CONFIG ══════════════ */
+.esp-row {
+  display: grid; grid-template-columns: 28px 1fr 1fr 10px;
+  gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--bd);
+  font-family: var(--mono); font-size: .7rem;
+}
+.esp-z   { color: var(--red); font-weight: 600; }
+.esp-nm  { color: var(--t2); }
+.esp-ip  {
+  background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--rad);
+  padding: 4px 8px; font-family: var(--mono); font-size: .68rem; color: var(--t1); outline: none;
+}
+.esp-st  { width: 8px; height: 8px; border-radius: 50%; background: var(--t4); }
+.esp-st.online { background: var(--grn); }
+
+/* ══════════════ SETTINGS INPUT ══════════════ */
+.sfi { margin-bottom: 12px; }
+.sfi label { display: block; font-size: .68rem; color: var(--t3); font-family: var(--mono); letter-spacing: .4px; margin-bottom: 4px; }
+.sfi input {
+  width: 100%; background: var(--bg2); border: 1px solid var(--bd2); border-radius: var(--rad);
+  padding: 8px 10px; font-size: .8rem; color: var(--t1); font-family: var(--mono); outline: none;
+  box-shadow: inset 0 1px 3px rgba(30,58,138,.06);
+}
+.sfi input:focus { border-color: var(--blubr); box-shadow: 0 0 0 3px rgba(37,99,235,.10); }
+
+/* ══════════════ DEVICE MAINTENANCE ══════════════ */
+.dev-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--bd);
+}
+.dev-led { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dev-nm  { font-size: .78rem; font-weight: 500; }
+.dev-sub { font-size: .62rem; color: var(--t3); font-family: var(--mono); margin-top: 1px; }
+
+/* ══════════════ PEOPLE DOTS (MAP) ══════════════ */
+.ppl-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+.ppl-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ══════════════ THRESHOLD SLIDERS ══════════════ */
+.th-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.th-lbl { font-size: .7rem; color: var(--t3); width: 100px; flex-shrink: 0; font-family: var(--mono); }
+.th-val { font-family: var(--mono); font-size: .72rem; font-weight: 500; width: 60px; text-align: right; flex-shrink: 0; }
+input[type=range] {
+  flex: 1; accent-color: var(--red); cursor: pointer; height: 4px;
+}
+
+/* ══════════════ RESPONSIVE ══════════════ */
+@media (max-width: 900px) {
+  .rp { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 768px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .g2, .g3 { grid-template-columns: 1fr !important; }
+  .topbar { padding: 0 10px; gap: 6px; }
+  .tel-bar { display: none; }
+  .content { min-width: 0; }
+  .view-wrap { padding: 10px; }
+}
+
+/* ══════════════ HAMBURGER / MOBILE SIDEBAR ══════════════ */
+.ham-btn {
+  display: none; background: none; border: 1px solid var(--bd2);
+  cursor: pointer; padding: 6px 9px; border-radius: var(--rad);
+  color: var(--t2); font-size: 1rem; transition: all .15s; flex-shrink: 0;
+}
+.ham-btn:hover { background: var(--bg3); color: var(--t1); }
+.sb-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4);
+  z-index: 299; backdrop-filter: blur(2px);
+}
+.sb-overlay.open { display: block; }
+@media (max-width: 768px) {
+  .ham-btn { display: flex; align-items: center; justify-content: center; }
+  .sidebar {
+    position: fixed; left: calc(-1 * var(--sb-w)); top: 0; height: 100%;
+    z-index: 300; width: var(--sb-w) !important;
+    transition: left .3s cubic-bezier(.4,0,.2,1);
+  }
+  .sidebar.sb-open { left: 0; box-shadow: 6px 0 32px rgba(0,0,0,.3); }
+  :root { --sb-w: 220px; }
+}
+
+/* ══════════════ SAFETY STATUS PANEL ══════════════ */
+.safe-banner {
+  border-radius: 18px; border: 2px solid; padding: 22px 28px;
+  display: flex; align-items: center; gap: 20px;
+  margin-bottom: 16px; transition: background .4s, border-color .4s;
+}
+.safe-banner.safe { background: var(--grnb); border-color: var(--grnbr); }
+.safe-banner.warn { background: var(--ambb); border-color: var(--ambbr); }
+.safe-banner.fire {
+  background: var(--redb); border-color: var(--redbr);
+  animation: safe-blink .65s infinite;
+}
+@keyframes safe-blink {
+  0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(229,48,48,.5); }
+  50%      { opacity: .9; box-shadow: 0 0 0 10px rgba(229,48,48,0); }
+}
+.safe-banner-icon {
+  font-size: 3.2rem; line-height: 1; flex-shrink: 0;
+  animation: none;
+}
+.safe-banner.fire .safe-banner-icon {
+  animation: icon-shake .5s infinite;
+}
+@keyframes icon-shake {
+  0%,100% { transform: rotate(-8deg); }
+  50%      { transform: rotate( 8deg); }
+}
+.safe-banner-title {
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -.5px;
+}
+.safe-banner.safe .safe-banner-title { color: var(--grn); }
+.safe-banner.warn .safe-banner-title { color: var(--amb); }
+.safe-banner.fire .safe-banner-title { color: var(--red); font-size: 1.7rem; }
+.safe-banner-sub {
+  font-size: .82rem; color: var(--t2); margin-top: 4px; line-height: 1.5;
+}
+.safe-banner.fire .safe-banner-sub { color: var(--red); font-weight: 600; }
+
+.safe-zone-badge {
+  width: 56px; height: 56px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem; font-weight: 900; font-family: var(--mono);
+  background: var(--blub); color: var(--blu); border: 2px solid var(--blubr);
+  flex-shrink: 0;
+}
+.safe-zone-badge.fire { background: var(--redb); color: var(--red); border-color: var(--redbr); animation: zblink .7s infinite; }
+.safe-zone-badge.warn { background: var(--ambb); color: var(--amb); border-color: var(--ambbr); }
+
+/* Global safety alert toast — fixed overlay for user */
+#safetyAlertToast {
+  position: fixed; inset: 0; z-index: 900; pointer-events: none;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 22px;
+  opacity: 0; transition: opacity .3s;
+}
+#safetyAlertToast.show { opacity: 1; pointer-events: none; }
+#safetyAlertToast .sat-inner {
+  background: var(--red); color: #fff;
+  border-radius: 16px; padding: 16px 28px;
+  font-size: 1rem; font-weight: 700; letter-spacing: -.2px;
+  box-shadow: 0 12px 48px rgba(229,48,48,.55);
+  display: flex; align-items: center; gap: 12px;
+  animation: toast-slide .35s cubic-bezier(.25,1,.5,1);
+  max-width: 92vw; text-align: center;
+}
+@keyframes toast-slide { from { transform: translateY(-30px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+
+/* ══════════════ PWA INSTALL BUTTON ══════════════ */
+.install-btn {
+  display: none; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: var(--rad); border: 1px solid var(--blubr);
+  background: var(--blub); color: var(--blu); cursor: pointer;
+  font-size: .72rem; font-family: var(--font); font-weight: 600;
+  white-space: nowrap; transition: all .15s; flex-shrink: 0;
+  margin-left: auto;
+}
+.install-btn:hover { background: rgba(37,99,235,.2); }
+.install-btn.visible { display: flex; }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen">
+  <div class="lcard">
+    <div class="lcard-hd">
+      <div class="lcard-logo">🔥</div>
+      <div>
+        <div class="lcard-title">FireGuard ICS</div>
+        <div class="lcard-sub">Industrial Fire Monitoring System  v2.0</div>
+      </div>
+    </div>
+    <div class="lcard-body">
+      <!-- Connection mode -->
+      <div class="lconn">
+        <button class="lconn-btn sel" onclick="setConn('sim',this)">🖥 Simulator</button>
+        <button class="lconn-btn" onclick="setConn('hw',this)">📡 Real Hardware</button>
+      </div>
+      <div id="hwConf">
+        <div class="lfi"><label>ESP32 Zone D — IP Address</label><input id="hwIp" placeholder="192.168.1.100"></div>
+        <div class="hw-note">Connects over local WiFi to your ESP32's HTTP API</div>
+      </div>
+
+      <!-- Role selection -->
+      <div class="lrole-row">
+        <div class="lrole sel" onclick="selRole('admin',this)" id="ro-admin">
+          <span class="lrole-ic">🔑</span><span class="lrole-nm">Admin</span>
+        </div>
+        <div class="lrole" onclick="selRole('sup',this)" id="ro-sup">
+          <span class="lrole-ic">📊</span><span class="lrole-nm">Supervisor</span>
+        </div>
+        <div class="lrole" onclick="selRole('opr',this)" id="ro-opr">
+          <span class="lrole-ic">🔧</span><span class="lrole-nm">Operator</span>
+        </div>
+      </div>
+
+      <div class="lfi"><label>Badge ID</label><input id="loginUser" placeholder="admin / sup / user" autocomplete="off"></div>
+      <div class="lfi"><label>Access Code</label><input id="loginPass" type="password" placeholder="Enter access code"></div>
+      <button class="lbtn" onclick="doLogin()">Authenticate</button>
+      <div class="lerr" id="loginErr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div class="main">
+    <!-- Mobile sidebar overlay -->
+    <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-hd">
+        <div class="sb-logo">🔥</div>
+        <div>
+          <div class="sb-brand">FireGuard ICS</div>
+          <div class="sb-ver">v2.0.0 — Industrial</div>
+        </div>
+      </div>
+      <nav class="nav-list" id="navList">
+        <div class="nav-item active" id="nav-dashboard" onclick="switchView('dashboard')"><span class="nav-ic">⬛</span><span class="nav-lbl">Dashboard</span></div>
+        <div class="nav-item" id="nav-zones"     onclick="switchView('zones')">    <span class="nav-ic">🗺</span><span class="nav-lbl">Zone Map</span></div>
+        <div class="nav-item" id="nav-sensors"   onclick="switchView('sensors')">  <span class="nav-ic">📡</span><span class="nav-lbl">Live Sensors</span></div>
+        <div class="nav-item" id="nav-analytics" onclick="switchView('analytics')"><span class="nav-ic">📈</span><span class="nav-lbl">Analytics</span></div>
+        <!-- EVACUATION TAB HIDDEN: Logic remains active via Zone Map and auto-triggers -->
+        <div class="nav-item" id="nav-safety"    onclick="switchView('safety')">   <span class="nav-ic">🛡</span><span class="nav-lbl">My Safety</span></div>
+        <div class="nav-item" id="nav-tasks"     onclick="switchView('tasks')">    <span class="nav-ic">📋</span><span class="nav-lbl">Field Tasks</span></div>
+        <div class="nav-item" id="nav-devices"   onclick="switchView('devices')">  <span class="nav-ic">⚙</span><span class="nav-lbl">Devices</span></div>
+        <div class="nav-item" id="nav-settings"  onclick="switchView('settings')"> <span class="nav-ic">🔧</span><span class="nav-lbl">Settings</span></div>
+      </nav>
+      <div class="sb-ft">
+        <div class="user-badge" id="userBadge">
+          <div class="ub-dot" id="ubDot"></div>
+          <div><div class="ub-name" id="ubName">—</div><div class="ub-role" id="ubRole">—</div></div>
+        </div>
+        <button class="sb-btn" onclick="doLogout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <div class="content">
+      <!-- TOP BAR -->
+      <header class="topbar">
+        <button class="ham-btn" id="hamBtn" onclick="toggleSidebar()" title="Toggle Menu">☰</button>
+        <div class="live-dot" id="liveDot"></div>
+        <div id="sysPill" class="sys-pill sp-ok">NOMINAL</div>
+        <div class="tbar-sep"></div>
+        <div class="tel-bar">
+          <div class="tel-item">TMP: <b id="tbTmp">--</b>°C</div>
+          <div class="tel-item">SMK: <b id="tbSmk">--</b></div>
+          <div class="tel-item">HUM: <b id="tbHum">--</b>%</div>
+          <div class="tel-item">ALERTS: <b id="tbAl">0</b></div>
+        </div>
+        <div class="tbar-time" id="tbTime">--:--:--</div>
+        <button class="install-btn" id="installBtn" onclick="installPWA()" title="Install FireGuard as App">📲 Install App</button>
+      </header>
+
+      <!-- VIEWS -->
+      <div class="view-wrap">
+
+        <!-- DASHBOARD -->
+        <div id="v-dashboard" class="view active">
+          <div class="kpi-grid">
+            <div class="kpi kpi-fire"><div class="kpi-label">Fire Zones</div><div class="kpi-val" id="kpi-fire" style="color:var(--red)">0</div><div class="kpi-sub">Active fire events</div></div>
+            <div class="kpi kpi-warn"><div class="kpi-label">Warning Zones</div><div class="kpi-val" id="kpi-warn" style="color:var(--amb)">0</div><div class="kpi-sub">Threshold breached</div></div>
+            <div class="kpi kpi-safe"><div class="kpi-label">Safe Zones</div><div class="kpi-val" id="kpi-safe" style="color:var(--grn)">5</div><div class="kpi-sub">Nominal operation</div></div>
+            <div class="kpi kpi-reads"><div class="kpi-label">Sensor Reads</div><div class="kpi-val" id="kpi-reads" style="color:var(--blu)">0</div><div class="kpi-sub">Total cycles</div></div>
+          </div>
+
+          <div class="g2" style="margin-bottom:12px">
+            <!-- Sensor Bars -->
+            <div class="card">
+              <div class="card-hd"><span class="card-title">Live Sensor Readings</span><span class="badge b-ok" id="sensorBadge">NOMINAL</span></div>
+              <div class="sensor-bar-wrap">
+                <div class="sensor-bar-hd"><span class="sensor-bar-nm" style="color:var(--red)">🌡 Temperature</span><span class="sensor-bar-val" id="sbv-t" style="color:var(--red)">--°C</span></div>
+                <div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbf-t" style="background:var(--red);width:0%"></div></div>
+                <div class="sensor-markers"><span>0°C</span><span id="tw-mark">--</span><span id="tc-mark">--</span><span>80°C</span></div>
+              </div>
+              <div class="sensor-bar-wrap">
+                <div class="sensor-bar-hd"><span class="sensor-bar-nm" style="color:var(--amb)">💨 Smoke ADC</span><span class="sensor-bar-val" id="sbv-s" style="color:var(--amb)">--</span></div>
+                <div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbf-s" style="background:var(--amb);width:0%"></div></div>
+                <div class="sensor-markers"><span>0</span><span id="sw-mark">--</span><span id="sc-mark">--</span><span>4095</span></div>
+              </div>
+              <div class="sensor-bar-wrap" style="margin-bottom:0">
+                <div class="sensor-bar-hd"><span class="sensor-bar-nm" style="color:var(--blu)">💧 Humidity</span><span class="sensor-bar-val" id="sbv-h" style="color:var(--blu)">--%</span></div>
+                <div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbf-h" style="background:var(--blu);width:0%"></div></div>
+              </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="card">
+              <div class="card-hd"><span class="card-title">Activity Log</span><span style="font-family:var(--mono);font-size:.62rem;color:var(--t3)" id="logCount">0 events</span></div>
+              <div id="dashLog" style="max-height:200px;overflow-y:auto"></div>
+            </div>
+          </div>
+
+          <!-- Actuator Status -->
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Actuator Status — Zone D (ESP32 Hardware)</span></div>
+            <div class="g3">
+              <div style="text-align:center;padding:12px 0">
+                <div style="font-size:2rem;margin-bottom:4px">💨</div>
+                <div style="font-size:.72rem;color:var(--t3);margin-bottom:6px;font-family:var(--mono)">EXHAUST FAN</div>
+                <span class="badge b-off" id="act-fan">OFF</span>
+              </div>
+              <div style="text-align:center;padding:12px 0">
+                <div style="font-size:2rem;margin-bottom:4px">💧</div>
+                <div style="font-size:.72rem;color:var(--t3);margin-bottom:6px;font-family:var(--mono)">WATER PUMP</div>
+                <span class="badge b-off" id="act-pump">OFF</span>
+              </div>
+              <div style="text-align:center;padding:12px 0">
+                <div style="font-size:2rem;margin-bottom:4px">🔔</div>
+                <div style="font-size:.72rem;color:var(--t3);margin-bottom:6px;font-family:var(--mono)">BUZZER</div>
+                <span class="badge b-off" id="act-buzz">OFF</span>
+              </div>
+            </div>
+            <div class="btn-row" id="ctrlButtons" style="margin-top:8px"></div>
+          </div>
+        </div>
+
+        <!-- ZONE MAP -->
+        <div id="v-zones" class="view">
+          <div class="g2" style="height:100%;align-items:start">
+            <div>
+              <div class="card" style="margin-bottom:12px">
+                <div class="card-hd"><span class="card-title">Facility Floor Plan</span><span class="badge b-hw">Zone D — ESP32 Live</span></div>
+                <div class="map-wrap">
+                  <svg id="floorMap" class="map-svg" viewBox="0 0 900 480" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <radialGradient id="fireGrd" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="rgba(244,63,63,.5)"/>
+                        <stop offset="100%" stop-color="rgba(244,63,63,0)"/>
+                      </radialGradient>
+                      
+                      <!-- Fan Icon Template -->
+                      <g id="fan-icon" stroke="currentColor">
+                        <circle cx="20" cy="20" r="16" fill="currentColor" fill-opacity="0.12" stroke-width="1.8"/>
+                        <!-- Fan blades -->
+                        <path d="M20 12 A8 8 0 0 1 20 28 A8 8 0 0 1 20 12 Z M12 20 A8 8 0 0 1 28 20 A8 8 0 0 1 12 20 Z" fill="none" stroke-width="1.8"/>
+                        <circle cx="20" cy="20" r="2" fill="currentColor"/>
+                      </g>
+                      
+                      <!-- Pump Icon Template -->
+                      <g id="pump-icon" stroke="currentColor">
+                        <rect x="5" y="8" width="30" height="24" rx="4" fill="currentColor" fill-opacity="0.12" stroke-width="1.8"/>
+                        <!-- Pipe/Water symbol -->
+                        <path d="M10 20 C13 16 17 24 20 20 C23 16 27 24 30 20" fill="none" stroke-width="2"/>
+                      </g>
+                    </defs>
+
+                    <!-- Grid -->
+                    <rect width="900" height="480" fill="rgba(37,99,235,.03)" rx="4"/>
+
+                    <!-- Zone A: Entry/Reception -->
+                    <rect class="zone-hit" x="30" y="30" width="220" height="420" rx="4" fill="transparent"
+                      onclick="zoneClick(event,'A')" ondblclick="zoneDoubleClick(event,'A')"/>
+                    <rect id="zr-A" x="30" y="30" width="220" height="420" rx="4" fill="rgba(5,150,105,.13)" stroke="rgba(5,150,105,.55)" stroke-width="2" pointer-events="none"/>
+                    <text x="140" y="65" text-anchor="middle" font-family="'Space Grotesk'" font-size="16" fill="#1a2340" font-weight="800" pointer-events="none">ZONE A</text>
+                    <text x="140" y="85" text-anchor="middle" font-family="'JetBrains Mono'" font-size="11" fill="#5a6b82" font-weight="600" opacity="0.8" pointer-events="none">Entry / Reception</text>
+                    <g transform="translate(60, 360)" id="fc-FA1" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#fan-icon"/><text id="fs-FA1" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">FA1</text></g>
+                    <g transform="translate(140, 360)" id="pr-PA" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#pump-icon"/><text id="ps-PA" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">PA</text></g>
+                    <circle id="fire-A" cx="140" cy="240" r="70" fill="url(#fireGrd)" opacity="0" pointer-events="none"/>
+
+                    <!-- Zone D: Storage + ESP32 -->
+                    <rect class="zone-hit" x="250" y="30" width="200" height="200" rx="4" fill="transparent"
+                      onclick="zoneClick(event,'D')" ondblclick="zoneDoubleClick(event,'D')"/>
+                    <rect id="zr-D" data-zone="D" x="250" y="30" width="200" height="200" rx="4" fill="rgba(5,150,105,.13)" stroke="rgba(5,150,105,.55)" stroke-width="2" pointer-events="none"/>
+                    <text x="350" y="65" text-anchor="middle" font-family="'Space Grotesk'" font-size="16" fill="#1a2340" font-weight="800" pointer-events="none">ZONE D</text>
+                    <text x="350" y="85" text-anchor="middle" font-family="'JetBrains Mono'" font-size="11" fill="#2563eb" font-weight="700" pointer-events="none">Storage [ESP32 LIVE]</text>
+                    <g transform="translate(260, 150)" id="fc-FD1" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#fan-icon"/><text id="fs-FD1" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">FD1</text></g>
+                    <g transform="translate(390, 150)" id="pr-PD" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#pump-icon"/><text id="ps-PD" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">PD</text></g>
+                    <circle id="fire-D" cx="350" cy="130" r="70" fill="url(#fireGrd)" opacity="0" pointer-events="none"/>
+
+                    <!-- Zone B: Main Hall -->
+                    <rect class="zone-hit" x="450" y="30" width="420" height="200" rx="4" fill="transparent"
+                      onclick="zoneClick(event,'B')" ondblclick="zoneDoubleClick(event,'B')"/>
+                    <rect id="zr-B" x="450" y="30" width="420" height="200" rx="4" fill="rgba(5,150,105,.13)" stroke="rgba(5,150,105,.55)" stroke-width="2" pointer-events="none"/>
+                    <text x="660" y="65" text-anchor="middle" font-family="'Space Grotesk'" font-size="16" fill="#1a2340" font-weight="800" pointer-events="none">ZONE B</text>
+                    <text x="660" y="85" text-anchor="middle" font-family="'JetBrains Mono'" font-size="11" fill="#5a6b82" font-weight="600" opacity="0.8" pointer-events="none">Main Hall</text>
+                    <g transform="translate(480, 150)" id="fc-FB1" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#fan-icon"/><text id="fs-FB1" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">FB1</text></g>
+                    <g transform="translate(800, 150)" id="pr-PB" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#pump-icon"/><text id="ps-PB" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">PB</text></g>
+                    <circle id="fire-B" cx="660" cy="130" r="80" fill="url(#fireGrd)" opacity="0" pointer-events="none"/>
+
+                    <!-- Zone E: Exit Corridor -->
+                    <rect class="zone-hit" x="250" y="230" width="200" height="220" rx="4" fill="transparent"
+                      onclick="zoneClick(event,'E')" ondblclick="zoneDoubleClick(event,'E')"/>
+                    <rect id="zr-E" x="250" y="230" width="200" height="220" rx="4" fill="rgba(5,150,105,.13)" stroke="rgba(5,150,105,.55)" stroke-width="2" pointer-events="none"/>
+                    <text x="350" y="265" text-anchor="middle" font-family="'Space Grotesk'" font-size="16" fill="#1a2340" font-weight="800" pointer-events="none">ZONE E</text>
+                    <text x="350" y="285" text-anchor="middle" font-family="'JetBrains Mono'" font-size="11" fill="#5a6b82" font-weight="600" opacity="0.8" pointer-events="none">Exit Corridor</text>
+                    <g transform="translate(260, 360)" id="fc-FE1" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#fan-icon"/><text id="fs-FE1" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">FE1</text></g>
+                    <g transform="translate(390, 360)" id="pr-PE" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#pump-icon"/><text id="ps-PE" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">PE</text></g>
+                    <circle id="fire-E" cx="350" cy="340" r="70" fill="url(#fireGrd)" opacity="0" pointer-events="none"/>
+
+                    <!-- Zone C: Server Room -->
+                    <rect class="zone-hit" x="450" y="230" width="420" height="220" rx="4" fill="transparent"
+                      onclick="zoneClick(event,'C')" ondblclick="zoneDoubleClick(event,'C')"/>
+                    <rect id="zr-C" x="450" y="230" width="420" height="220" rx="4" fill="rgba(5,150,105,.13)" stroke="rgba(5,150,105,.55)" stroke-width="2" pointer-events="none"/>
+                    <text x="660" y="265" text-anchor="middle" font-family="'Space Grotesk'" font-size="16" fill="#1a2340" font-weight="800" pointer-events="none">ZONE C</text>
+                    <text x="660" y="285" text-anchor="middle" font-family="'JetBrains Mono'" font-size="11" fill="#5a6b82" font-weight="600" opacity="0.8" pointer-events="none">Server Room</text>
+                    <g transform="translate(480, 360)" id="fc-FC1" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#fan-icon"/><text id="fs-FC1" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">FC1</text></g>
+                    <g transform="translate(800, 360)" id="pr-PC" color="rgba(150,145,135,.6)" pointer-events="none"><use href="#pump-icon"/><text id="ps-PC" x="20" y="48" text-anchor="middle" font-family="'JetBrains Mono'" font-size="9" font-weight="700" fill="currentColor">PC</text></g>
+                    <circle id="fire-C" cx="660" cy="340" r="70" fill="url(#fireGrd)" opacity="0" pointer-events="none"/>
+
+                    <!-- Doors -->
+                    <rect x="248" y="110" width="4" height="40" fill="#fff" stroke="#t3" /> <!-- A-D -->
+                    <rect x="248" y="320" width="4" height="40" fill="#fff" stroke="#t3" /> <!-- A-E -->
+                    <rect x="448" y="110" width="4" height="40" fill="#fff" stroke="#t3" /> <!-- D-B -->
+                    <rect x="448" y="320" width="4" height="40" fill="#fff" stroke="#t3" /> <!-- E-C -->
+                    <rect x="330" y="228" width="40" height="4" fill="#fff" stroke="#t3" /> <!-- D-E -->
+                    <rect x="640" y="228" width="40" height="4" fill="#fff" stroke="#t3" /> <!-- B-C -->
+
+                    <!-- EXIT labels -->
+                    <text x="15" y="240" font-family="'JetBrains Mono'" font-size="12" fill="#059669" font-weight="800" writing-mode="vertical-lr" transform="rotate(180,15,240)" pointer-events="none">EXIT ←</text>
+                    <text x="350" y="468" text-anchor="middle" font-family="'JetBrains Mono'" font-size="12" fill="#059669" font-weight="800" pointer-events="none">↓ MAIN EXIT</text>
+
+                    <!-- People animation layer -->
+                    <g id="pplLayer"></g>
+
+                    <!-- Door Barriers (Visual Feedback) -->
+                    <g id="doorBarriers" font-family="'JetBrains Mono'" font-size="8" font-weight="900" fill="var(--red)" pointer-events="none"></g>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Zone List -->
+            <div id="zoneList">
+              <div class="sec-label" style="margin-bottom:8px">ZONE STATUS</div>
+              <div class="zone-item" data-zone="D">
+  <div class="zi-row">
+    <span class="zi-name">Zone D</span>
+    <span class="badge b-ok">NORMAL</span>
+  </div>
+  <div class="zi-vals">
+    <div class="zi-v">Temp: <b id="zdt">--</b></div>
+    <div class="zi-v">Smoke: <b id="zds">--</b></div>
+  </div>
+</div>
+          </div>
+        </div>
+      </div>
+
+        <!-- LIVE SENSORS -->
+        <div id="v-sensors" class="view">
+          <div class="sec-label" style="margin-bottom:12px">REAL-TIME SENSOR DATA — ZONE D (ESP32)</div>
+          <div class="g2" style="margin-bottom:12px">
+            <div class="card">
+              <div class="card-hd"><span class="card-title">Temperature</span><span class="badge b-ok" id="tempBadge">OK</span></div>
+              <div style="font-size:3rem;font-weight:700;font-family:var(--mono);color:var(--red);margin:12px 0" id="bigTemp">--°C</div>
+              <div class="sensor-bar-track" style="height:8px">
+                <div class="sensor-bar-fill" id="bigTempBar" style="background:linear-gradient(90deg,var(--grn),var(--amb),var(--red));width:0%"></div>
+              </div>
+              <div class="sensor-markers" style="margin-top:4px"><span>0°C</span><span style="color:var(--amb)" id="stw">40°C</span><span style="color:var(--red)" id="stc">55°C</span><span>80°C</span></div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><span class="card-title">Smoke (MQ-2 ADC)</span><span class="badge b-ok" id="smokeBadge">OK</span></div>
+              <div style="font-size:3rem;font-weight:700;font-family:var(--mono);color:var(--amb);margin:12px 0" id="bigSmoke">-- ADC</div>
+              <div class="sensor-bar-track" style="height:8px">
+                <div class="sensor-bar-fill" id="bigSmokeBar" style="background:linear-gradient(90deg,var(--grn),var(--amb),var(--red));width:0%"></div>
+              </div>
+              <div class="sensor-markers" style="margin-top:4px"><span>0</span><span style="color:var(--amb)" id="ssw">2800</span><span style="color:var(--red)" id="ssc">3200</span><span>4095</span></div>
+            </div>
+          </div>
+          <div class="g3">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:8px">Device Uptime</div>
+              <div style="font-size:1.6rem;font-weight:700;font-family:var(--mono);color:var(--grn)" id="espUptime">--</div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:8px">WiFi Signal</div>
+              <div style="font-size:1.6rem;font-weight:700;font-family:var(--mono);color:var(--blu)" id="espRSSI">-- dBm</div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:8px">Sensor Health</div>
+              <div style="font-size:1rem;font-weight:600;font-family:var(--mono);margin-top:8px" id="espFault">--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANALYTICS -->
+        <div id="v-analytics" class="view">
+          <div class="card" style="margin-bottom:12px">
+            <div class="card-hd"><span class="card-title">Temperature History — Zone D</span></div>
+            <div class="chart-wrap lg"><canvas id="chartTemp"></canvas></div>
+          </div>
+          <div class="g2">
+            <div class="card">
+              <div class="card-hd"><span class="card-title">Smoke ADC History</span></div>
+              <div class="chart-wrap"><canvas id="chartSmoke"></canvas></div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><span class="card-title">All Parameters — 20 Samples</span></div>
+              <div class="chart-wrap"><canvas id="chartCombined"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EVACUATION -->
+        <div id="v-evac" class="view">
+          <div class="card" style="margin-bottom:12px">
+            <div class="card-hd">
+              <span class="card-title">Evacuation Control</span>
+              <span class="badge b-off" id="evacBadge">STANDBY</span>
+            </div>
+            <div class="btn-row" style="margin-bottom:12px">
+              <button class="btn btn-red"  onclick="triggerEvac()">🚨 Activate Evacuation</button>
+              <button class="btn btn-grn"  onclick="clearEvac()">✓ All Clear</button>
+            </div>
+            <div style="font-size:.75rem;color:var(--t3);font-family:var(--mono)" id="evacInfo">All zones nominal. No evacuation required.</div>
+          </div>
+          <div class="g3" id="evacGrid"></div>
+        </div>
+
+        <!-- MY SAFETY STATUS (Operator only) -->
+        <div id="v-safety" class="view">
+
+          <!-- System-wide alert banner -->
+          <div id="safeBanner" class="safe-banner safe">
+            <div class="safe-banner-icon" id="safeBannerIcon">✅</div>
+            <div class="safe-banner-body">
+              <div class="safe-banner-title" id="safeBannerTitle">All Zones Clear — Facility Safe</div>
+              <div class="safe-banner-sub"   id="safeBannerSub">No fire or hazard detected across all zones. Stay at your post.</div>
+            </div>
+          </div>
+
+          <!-- Summary pill row -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:6px;background:var(--grnb);border:1px solid var(--grnbr);border-radius:20px;padding:5px 14px;font-size:.72rem;font-weight:700;font-family:var(--mono)">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--grn)"></div>
+              <span style="color:var(--grn)" id="safeSummSafe">5 SAFE</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;background:var(--ambb);border:1px solid var(--ambbr);border-radius:20px;padding:5px 14px;font-size:.72rem;font-weight:700;font-family:var(--mono)">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--amb)"></div>
+              <span style="color:var(--amb)" id="safeSummWarn">0 WARN</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;background:var(--redb);border:1px solid var(--redbr);border-radius:20px;padding:5px 14px;font-size:.72rem;font-weight:700;font-family:var(--mono)">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--red)"></div>
+              <span style="color:var(--red)" id="safeSummFire">0 FIRE</span>
+            </div>
+            <div style="margin-left:auto;font-size:.65rem;font-family:var(--mono);color:var(--t3);align-self:center">
+              Live · updates every 2.5s
+            </div>
+          </div>
+
+          <!-- All-zones grid (built by JS) -->
+          <div id="safeZoneGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:14px"></div>
+
+          <!-- Exit routes reference card -->
+          <div class="card">
+            <div class="card-hd"><span class="card-title">🚪 Evacuation Exit Routes</span></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:10px">
+              <div style="background:var(--bg2);border-radius:var(--rad);padding:8px 10px;font-size:.72rem">
+                <span style="font-weight:700;font-family:var(--mono);color:var(--blu)">Zone A</span><br>
+                <span style="color:var(--t2)">⇐ Left EXIT (direct)</span>
+              </div>
+              <div style="background:var(--bg2);border-radius:var(--rad);padding:8px 10px;font-size:.72rem">
+                <span style="font-weight:700;font-family:var(--mono);color:var(--blu)">Zone B</span><br>
+                <span style="color:var(--t2)">→ Zone A → Left EXIT</span>
+              </div>
+              <div style="background:var(--bg2);border-radius:var(--rad);padding:8px 10px;font-size:.72rem">
+                <span style="font-weight:700;font-family:var(--mono);color:var(--blu)">Zone C</span><br>
+                <span style="color:var(--t2)">→ Zone A → Left EXIT</span>
+              </div>
+              <div style="background:var(--bg2);border-radius:var(--rad);padding:8px 10px;font-size:.72rem">
+                <span style="font-weight:700;font-family:var(--mono);color:var(--blu)">Zone D</span><br>
+                <span style="color:var(--t2)">→ Zone E → Right EXIT</span>
+              </div>
+              <div style="background:var(--bg2);border-radius:var(--rad);padding:8px 10px;font-size:.72rem">
+                <span style="font-weight:700;font-family:var(--mono);color:var(--blu)">Zone E</span><br>
+                <span style="color:var(--t2)">⇒ Right EXIT (direct)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="v-tasks" class="view">
+          <!-- header row: role-aware -->
+          <div class="task-view-hd">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="card-title" id="taskViewTitle">Field Tasks</span>
+              <span class="badge b-off" id="taskFaultCount" style="display:none">0 FAULTS</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="task-role-note" id="taskRoleNote"></span>
+              <span style="font-family:var(--mono);font-size:.7rem;color:var(--grn)" id="taskProgress">0 / 0 complete</span>
+            </div>
+          </div>
+          <!-- fault banner (shown when faults exist) -->
+          <div id="faultBanner" style="display:none" class="task-fault-banner">
+            <span>⚠️</span>
+            <span id="faultBannerTxt">Active device faults require immediate attention.</span>
+          </div>
+          <!-- equipment strip (Operator only) -->
+          <div id="equipStrip" style="display:none">
+            <div class="sec-label" style="margin-bottom:8px">YOUR EQUIPMENT STATUS</div>
+            <div class="equip-strip" id="equipChips"></div>
+          </div>
+          <!-- task list -->
+          <div id="taskList"></div>
+        </div>
+
+        <!-- DEVICES -->
+        <div id="v-devices" class="view">
+          <div class="g2">
+            <div class="card">
+              <div class="card-hd">
+                <span class="card-title">Fans</span>
+                <span class="badge b-off" id="fanFaultCount"></span>
+              </div>
+              <div id="fanList"></div>
+            </div>
+            <div class="card">
+              <div class="card-hd">
+                <span class="card-title">Pumps</span>
+                <span class="badge b-off" id="pumpFaultCount"></span>
+              </div>
+              <div id="pumpList"></div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="card-hd">
+              <span class="card-title">Sensors</span>
+              <span class="badge b-off" id="sensorFaultCount"></span>
+            </div>
+            <div id="sensorList"></div>
+          </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="v-settings" class="view">
+          <div class="g2">
+            <!-- Alert Thresholds -->
+            <div class="card">
+              <div class="card-hd"><span class="card-title">Alert Thresholds</span></div>
+              <div class="th-row"><span class="th-lbl">Temp Warning</span><input type="range" id="th-tw" min="30" max="60" step="1" value="40" oninput="updateTH()"><span class="th-val" id="th-tw-v" style="color:var(--amb)">40°C</span></div>
+              <div class="th-row"><span class="th-lbl">Temp Critical</span><input type="range" id="th-tc" min="40" max="80" step="1" value="55" oninput="updateTH()"><span class="th-val" id="th-tc-v" style="color:var(--red)">55°C</span></div>
+              <div class="th-row"><span class="th-lbl">Smoke Warning</span><input type="range" id="th-sw" min="2000" max="3500" step="50" value="3500" oninput="updateTH()"><span class="th-val" id="th-sw-v" style="color:var(--amb)">3500</span></div>
+              <div class="th-row"><span class="th-lbl">Smoke Critical</span><input type="range" id="th-sc" min="2500" max="4000" step="50" value="3800" oninput="updateTH()"><span class="th-val" id="th-sc-v" style="color:var(--red)">3800</span></div>
+              <button class="btn btn-blu" style="margin-top:10px;width:100%" onclick="pushThresholdsToESP32()">Push to ESP32</button>
+            </div>
+
+            <!-- Telegram Notification Setup -->
+            <div class="card">
+              <div class="card-hd"><span class="card-title">🔔 Telegram Fire Alert Setup</span></div>
+              <div style="font-size:.72rem;color:var(--t2);line-height:1.8;margin-bottom:10px">
+                When fire is detected, the system can send an instant Telegram message to your phone or group.
+              </div>
+              <div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rad);padding:12px;margin-bottom:10px">
+                <div style="font-size:.7rem;font-weight:600;color:var(--blu);font-family:var(--mono);margin-bottom:8px">📋 SETUP STEPS</div>
+                <ol style="font-size:.7rem;color:var(--t2);line-height:2;padding-left:16px">
+                  <li>Open Telegram → Search <b>@BotFather</b></li>
+                  <li>Send <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">/newbot</code> → choose a name → copy <b>Bot Token</b></li>
+                  <li>Search <b>@userinfobot</b> → send any message → copy your <b>Chat ID</b></li>
+                  <li>Invite your bot to a group (optional) → use group Chat ID (starts with -)</li>
+                  <li>Enter both values in <b>server.js</b> → restart server</li>
+                </ol>
+              </div>
+              <div class="sfi"><label>Telegram Bot Token (in server.js)</label><input id="ct-tgtoken" placeholder="Paste into TELEGRAM_BOT_TOKEN in server.js"></div>
+              <div class="sfi"><label>Telegram Chat ID (in server.js)</label><input id="ct-tgchat" placeholder="Your Chat ID or Group ID"></div>
+              <button class="btn btn-grn" style="width:100%" onclick="copyTelegramConfig()">📋 Copy Config for server.js</button>
+            </div>
+
+            <!-- IP Address Guide -->
+            <div class="card" style="margin-top:12px">
+              <div class="card-hd"><span class="card-title">🌐 How to Get Your Device IP</span></div>
+              <div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rad);padding:12px;margin-bottom:10px">
+                <div style="font-size:.7rem;font-weight:600;color:var(--blu);font-family:var(--mono);margin-bottom:8px">📍 ESP32 IP ADDRESS</div>
+                <ol style="font-size:.7rem;color:var(--t2);line-height:2;padding-left:16px">
+                  <li>Connect ESP32 to same WiFi as your PC</li>
+                  <li>Open Serial Monitor in Arduino IDE (115200 baud)</li>
+                  <li>Reset ESP32 → IP printed as: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">IP: 192.168.x.x</code></li>
+                  <li>Or check your router's admin page (usually 192.168.1.1)</li>
+                  <li>Enter IP in <b>ESP32 Zone Devices</b> above</li>
+                </ol>
+              </div>
+              <div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rad);padding:12px">
+                <div style="font-size:.7rem;font-weight:600;color:var(--grn);font-family:var(--mono);margin-bottom:8px">💻 YOUR PC IP (for server.js)</div>
+                <ol style="font-size:.7rem;color:var(--t2);line-height:2;padding-left:16px">
+                  <li>Press <b>Win+R</b> → type <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">cmd</code> → Enter</li>
+                  <li>Type <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">ipconfig</code> → look for <b>IPv4 Address</b></li>
+                  <li>Use this IP in ESP32 sketch to send data to your server</li>
+                </ol>
+                <div style="margin-top:8px;padding:8px;background:var(--blub);border:1px solid var(--blubr);border-radius:var(--rad);font-family:var(--mono);font-size:.7rem;color:var(--blu)">
+                  Your current device IP: <b id="myDeviceIP">Detecting...</b>
+                </div>
+              </div>
+            </div>
+
+            <!-- ESP32 Device Config -->
+            <div class="card">
+              <div class="card-hd"><span class="card-title">ESP32 Zone Devices</span></div>
+              <div class="sec-label" style="margin-bottom:8px">Enter IP to connect. Leave blank for simulation.</div>
+              <div id="espConfig"></div>
+              <button class="btn btn-blu" style="margin-top:10px;width:100%" onclick="saveESP()">Connect Devices</button>
+            </div>
+
+            <!-- Simulation Controls (Admin only) -->
+            <div class="card" id="simCard" style="display:none">
+              <div class="card-hd"><span class="card-title">Simulation Controls</span><span class="badge b-warn">ADMIN</span></div>
+              <div class="sec-label" style="margin-bottom:8px">Inject fire events for testing and demonstration.</div>
+              <div id="simZoneBtns" class="btn-row" style="flex-wrap:wrap"></div>
+              <button class="btn" style="margin-top:8px;width:100%" onclick="clearAllZones()">Clear All Zones</button>
+            </div>
+
+            <!-- PWA Install Guide -->
+            <div class="card" style="margin-top:12px">
+              <div class="card-hd"><span class="card-title">📲 Install as Mobile App (PWA)</span><span class="badge b-grn">FREE</span></div>
+              <div style="font-size:.72rem;color:var(--t2);line-height:1.8;margin-bottom:10px">
+                FireGuard ICS can be installed on your phone or desktop as a native-like app — no app store needed.
+              </div>
+              <div style="background:var(--blub);border:1px solid var(--blubr);border-radius:var(--rad);padding:12px;margin-bottom:10px">
+                <div style="font-size:.7rem;font-weight:600;color:var(--blu);font-family:var(--mono);margin-bottom:6px">📱 INSTALL STEPS</div>
+                <ol style="font-size:.7rem;color:var(--t2);line-height:2.2;padding-left:16px">
+                  <li>Open FireGuard in <b>Chrome</b> browser on your phone</li>
+                  <li>Access via local IP: <code style="background:var(--bg1);padding:2px 6px;border-radius:4px;color:var(--blu)">http://192.168.x.x:3000</code></li>
+                  <li>Tap ⋮ (3 dots) → <b>"Add to Home Screen"</b> or <b>"Install App"</b></li>
+                  <li>Or tap the <b>📲 Install App</b> button in the top bar when it appears</li>
+                </ol>
+              </div>
+              <div style="background:var(--grnb);border:1px solid var(--grnbr);border-radius:var(--rad);padding:8px;font-size:.65rem;color:var(--grn);font-family:var(--mono)">
+                ✅ Works offline &nbsp;|&nbsp; No browser UI &nbsp;|&nbsp; Professional app experience
+              </div>
+            </div>
+
+            <!-- ESP32 Connection Guide -->
+            <div class="card" style="margin-top:12px">
+              <div class="card-hd"><span class="card-title">&#128268; ESP32 Connection Guide</span><span class="badge b-hw">STEP BY STEP</span></div>
+              <div style="counter-reset:esp-step">
+
+                <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)">
+                  <div style="width:26px;height:26px;border-radius:50%;background:var(--blu);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+                  <div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--t1);margin-bottom:3px">Upload Code to ESP32</div>
+                    <div style="font-size:.68rem;color:var(--t2);line-height:1.7">Open <b>fireguard_esp32.ino</b> in Arduino IDE. Install libraries: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">DHT11</code>, <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">WiFi</code>, <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">ArduinoJson</code></div>
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)">
+                  <div style="width:26px;height:26px;border-radius:50%;background:var(--blu);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+                  <div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--t1);margin-bottom:3px">Set Your WiFi Credentials</div>
+                    <div style="font-size:.68rem;color:var(--t2);line-height:1.7">In the .ino file, update: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">const char* ssid = "YOUR_WIFI";</code> and <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">const char* password = "YOUR_PASS";</code></div>
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)">
+                  <div style="width:26px;height:26px;border-radius:50%;background:var(--blu);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+                  <div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--t1);margin-bottom:3px">Select Board &amp; Upload</div>
+                    <div style="font-size:.68rem;color:var(--t2);line-height:1.7">Tools &#8594; Board &#8594; <b>ESP32 Dev Module</b> &nbsp;|&nbsp; Tools &#8594; Port &#8594; select your COM port &nbsp;|&nbsp; Click Upload &#128285;</div>
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)">
+                  <div style="width:26px;height:26px;border-radius:50%;background:var(--blu);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
+                  <div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--t1);margin-bottom:3px">Get ESP32 IP Address</div>
+                    <div style="font-size:.68rem;color:var(--t2);line-height:1.7">Open Serial Monitor (115200 baud) &#8594; Reset ESP32 &#8594; Look for: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">IP: 192.168.x.x</code></div>
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)">
+                  <div style="width:26px;height:26px;border-radius:50%;background:var(--blu);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div>
+                  <div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--t1);margin-bottom:3px">Connect in Dashboard</div>
+                    <div style="font-size:.68rem;color:var(--t2);line-height:1.7">Go to <b>ESP32 Zone Devices</b> card above &#8594; Enter IP next to <b>Zone D</b> &#8594; Click <b>Connect Devices</b></div>
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:10px;padding:10px 0">
+                  <div style="width:26px;height:26px;border-radius:50%;background:var(--grn);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div>
+                  <div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--grn);margin-bottom:3px">&#9989; Live Data Active!</div>
+                    <div style="font-size:.68rem;color:var(--t2);line-height:1.7">Zone D badge changes to <b>ESP32 LIVE</b>. Real sensor readings appear. When fire detected &#8594; Telegram + app notified instantly!</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- STATUS BAR -->
+      <footer class="statusbar">
+        <div class="sbi">Status: <b id="sbSt">All Nominal</b></div>
+        <div class="sbar-sep"></div>
+        <div class="sbi">ESP32: <b id="sbEsp">Simulation</b></div>
+        <div class="sbar-sep"></div>
+        <div class="sbi">Reads: <b id="sbReads">0</b></div>
+        <div class="sbar-sep"></div>
+        <div class="sbi">Last Alert: <b id="sbLa">Never</b></div>
+        <div style="margin-left:auto" class="sbi">FireGuard ICS v2.0 — Industrial Fire Monitoring System</div>
+      </footer>
+    </div>
+
+    <!-- RIGHT PANEL (Zone Detail) -->
+    <aside class="rp" id="rp" style="display:none">
+      <div class="rp-hd">
+        <span class="rp-title" id="rpTitle">Zone Details</span>
+        <button class="rp-close" onclick="closeRP()">✕</button>
+      </div>
+      <div class="rp-body" id="rpBody"></div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- ══ ZONE FULLSCREEN OVERLAY ══ -->
+<div id="zoneOverlay" onclick="closeZoneOverlay(event)">
+  <div class="zo-card" onclick="event.stopPropagation()">
+    <div class="zo-header">
+      <div>
+        <div class="zo-title" id="zoTitle">Zone —</div>
+        <div class="zo-sub"  id="zoSub">—</div>
+      </div>
+      <button class="zo-close" onclick="closeZoneOverlay()">✕</button>
+    </div>
+    <div class="zo-body">
+      <div class="zo-kpi-row">
+        <div class="zo-kpi t">
+          <div class="zo-kpi-lbl">🌡 Temperature</div>
+          <div class="zo-kpi-val" id="zo-temp" style="color:var(--red)">--</div>
+          <div class="zo-kpi-unit">°C</div>
+        </div>
+        <div class="zo-kpi s">
+          <div class="zo-kpi-lbl">💨 Smoke ADC</div>
+          <div class="zo-kpi-val" id="zo-smoke" style="color:var(--amb)">--</div>
+          <div class="zo-kpi-unit">ADC raw</div>
+        </div>
+        <div class="zo-kpi h">
+          <div class="zo-kpi-lbl">👥 Personnel</div>
+          <div class="zo-kpi-val" id="zo-ppl" style="color:var(--blu)">--</div>
+          <div class="zo-kpi-unit">on-site</div>
+        </div>
+      </div>
+      <div class="zo-bars">
+        <div class="zo-bar-row">
+          <span class="zo-bar-lbl">Temperature</span>
+          <div class="zo-bar-track"><div class="zo-bar-fill" id="zo-tbar" style="background:var(--red)"></div></div>
+          <span class="zo-bar-val" id="zo-tval" style="color:var(--red)">--</span>
+        </div>
+        <div class="zo-bar-row">
+          <span class="zo-bar-lbl">Smoke Level</span>
+          <div class="zo-bar-track"><div class="zo-bar-fill" id="zo-sbar" style="background:var(--amb)"></div></div>
+          <span class="zo-bar-val" id="zo-sval" style="color:var(--amb)">--</span>
+        </div>
+      </div>
+      <div style="font-size:.65rem;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Equipment</div>
+      <div class="zo-equip-row" id="zo-equip"></div>
+      <div class="zo-status-bar safe" id="zo-statusBar">
+        <span id="zo-statusIcon">✅</span>
+        <span id="zo-statusTxt">All nominal — no action required</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ZONE DOUBLE-CLICK TOAST ══ -->
+<div id="zoneToast"></div>
+
+<!-- ══ USER SAFETY ALERT TOAST ══ -->
+<div id="safetyAlertToast">
+  <div class="sat-inner">
+    <span style="font-size:1.6rem">🚨</span>
+    <span id="safetyAlertMsg">DANGER: Your zone is unsafe. Evacuate immediately!</span>
+  </div>
+</div>
+
+<!-- AI CHATBOT -->
+<div class="chat-fab" id="chatFab" onclick="openChat()" style="display:none">🤖</div>
+<div class="chatbot" id="chatbot">
+  <div class="chat-hd" onclick="closeChat()">
+    <div class="chat-hd-info">
+      <span class="chat-ic">🤖</span>
+      <div><div class="chat-name">Guardian AI</div><div style="font-size:.6rem;color:var(--t3)">System Assistant</div></div>
+      <div class="chat-status-dot"></div>
+    </div>
+    <span style="color:var(--t3);font-size:.8rem">✕</span>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="chat-msg bot">Hello! I am Guardian AI. Ask me about zone status, evacuation routes, sensor readings, or system procedures.</div>
+  </div>
+  <div class="chat-in-area">
+    <input class="chat-in" id="chatIn" placeholder="Ask about zones, sensors, procedures..." onkeydown="if(event.key==='Enter') sendChat()">
+    <button class="chat-send" onclick="sendChat()">Send</button>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="overlay" id="taskModal">
+  <div class="modal">
+    <div class="mdl-hd"><span class="mdl-ttl" id="taskMdlTitle">Task</span><button class="mdl-cl" onclick="closeMdl('taskModal')">✕</button></div>
+    <div class="mdl-bd" id="taskMdlBody"></div>
+    <div class="mdl-ft"><button class="btn" onclick="closeMdl('taskModal')">Close</button><button class="btn btn-grn" id="taskMdlBtn" onclick="advanceTask()">Next Step</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="alertModal">
+  <div class="modal" style="border-color:var(--redbr)">
+    <div class="mdl-hd" style="background:var(--redb)"><span class="mdl-ttl" style="color:var(--red)">⚠ FIRE ALERT</span><button class="mdl-cl" onclick="closeMdl('alertModal')">✕</button></div>
+    <div class="mdl-bd" id="alertMdlBody"></div>
+    <div class="mdl-ft">
+      <button class="btn btn-amb" onclick="closeMdl('alertModal');silenceAlarm()">Silence</button>
+      <button class="btn btn-red" id="evacMdlBtn" onclick="closeMdl('alertModal');triggerEvac()">Evacuate Zone</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+//  DATA MODEL
+// ═══════════════════════════════════════════════════════
+const USERS = {
+  admin: {
+    pass:'admin123', role:'Administrator', badge:'ADM-001', level:3, color:'#e53030',
+    perms:{ sim:true, dispatch:true, config:true, tasks:false, ctrl:true },
+    nav:['dashboard','zones','sensors','analytics','devices','settings'],
+    zone: null  // Admin can access any zone — null means no restriction
+  },
+  sup: {
+    pass:'sup123',   role:'Supervisor',    badge:'SUP-001', level:2, color:'#2563eb',
+    perms:{ sim:false, dispatch:false, config:false, tasks:true, ctrl:false },
+    nav:['dashboard','zones','analytics','devices','tasks'],
+    zone: null  // Supervisor can access any zone for monitoring
+  },
+  user: {
+    pass:'user123',  role:'Operator',      badge:'OPR-001', level:1, color:'#059669',
+    perms:{ sim:false, dispatch:false, config:false, tasks:false, ctrl:false },
+    nav:['safety'],
+    zone:'B'  // Operator is physically assigned to Zone B — entry to dangerous zones blocked
+  }
+};
+
+// Permission check helper — call before any guarded action
+function can(perm) {
+  if (!CU) return false;
+  if (CU.perms[perm]) return true;
+  showToast(`⛔ Access Denied — ${CU.role} cannot perform this action.`);
+  return false;
+}
+
+// Check if current user can access a given nav/view id
+function canView(v) {
+  if (!CU) return false;
+  return CU.nav.includes(v);
+}
+
+// Zone data - initialized properly
+// Zone data - initialized with realistic baselines
+const Z = {
+  A:{ name:'Entry / Reception', temp:28.5, smoke:2650, status:'safe', people:4, hw:false, fans:['FA1'], pumps:['PA'] },
+  B:{ name:'Main Hall',         temp:30.2, smoke:2710, status:'safe', people:12, hw:false, fans:['FB1'], pumps:['PB'] },
+  C:{ name:'Server Room',       temp:22.8, smoke:2540, status:'safe', people:2, hw:false, fans:['FC1'], pumps:['PC'] },
+  D:{ name:'Storage [ESP32]',   temp:31.5, smoke:2780, status:'safe', people:3, hw:false,  fans:['FD1'], pumps:['PD'] },
+  E:{ name:'Exit Corridor',     temp:29.4, smoke:2690, status:'safe', people:0, hw:false, fans:['FE1'], pumps:['PE'] }
+};
+
+// Thresholds (synced with settings sliders)
+const TH = { tw:40, tc:55, sw:3500, sc:3800 };
+
+// Global data & Fire State
+const GD = { temperature:31.5, smoke:2780, humidity:54, uptime:0, reads:0, alerts:0, lastAlert:'Never', wifiRSSI:-65 };
+let fireState = { active: false, zone: null, tSpike: 0, sSpike: 0 };
+
+// Contacts
+const CT = { building:'Industrial Facility', address:'No.12, Industrial Area, Chennai 600096', me:'', tgToken:'', tgChat:'' };
+
+// ESP32 IPs per zone
+const DEVS = { A:'', B:'', C:'', D:'', E:'' };
+const DEV_ST = { A:'sim', B:'sim', C:'sim', D:'sim', E:'sim' };
+
+// Evacuation routes
+const EVAC = { A:'Left EXIT (direct)', B:'Zone A → Left EXIT', C:'Zone A → Left EXIT', D:'Zone E → Right EXIT', E:'Right EXIT (direct)' };
+
+// Devices catalogue
+const DEVICES = {
+  fans:{
+    FA1:{ zone:'A', name:'Fan A1',  status:'ok',   rpm:1200, lastMaint:'2025-01-10' },
+    FB1:{ zone:'B', name:'Fan B1',  status:'warn',  rpm:980,  lastMaint:'2024-12-01' },
+    FC1:{ zone:'C', name:'Fan C1',  status:'ok',   rpm:1150, lastMaint:'2025-01-20' },
+    FD1:{ zone:'D', name:'Fan D1',  status:'ok',   rpm:1080, lastMaint:'2025-01-08' },
+    FE1:{ zone:'E', name:'Fan E1',  status:'ok',   rpm:1100, lastMaint:'2025-01-15' }
+  },
+  pumps:{
+    PA: { zone:'A', name:'Pump A',  status:'ok',   pressure:4.2, lastMaint:'2025-01-12' },
+    PB: { zone:'B', name:'Pump B',  status:'ok',   pressure:4.0, lastMaint:'2025-01-12' },
+    PC: { zone:'C', name:'Pump C',  status:'ok',   pressure:3.8, lastMaint:'2025-01-18' },
+    PD: { zone:'D', name:'Pump D',  status:'ok',   pressure:4.1, lastMaint:'2025-01-08' },
+    PE: { zone:'E', name:'Pump E',  status:'ok',   pressure:3.5, lastMaint:'2025-01-20' }
+  },
+  sensors:{
+    SA: { zone:'A', name:'Sensor A',status:'ok',   battery:87, signal:95 },
+    SB: { zone:'B', name:'Sensor B',status:'warn',  battery:22, signal:78 },
+    SC: { zone:'C', name:'Sensor C',status:'ok',   battery:91, signal:98 },
+    SD: { zone:'D', name:'Sensor D',status:'ok',   battery:100,signal:100 },
+    SE: { zone:'E', name:'Sensor E',status:'ok',   battery:76, signal:92 }
+  }
+};
+
+// Tracks which device IDs are currently in FAULT (set by setDeviceFault)
+const FAULTS = {}; // { 'FA1': { type:'fans', id:'FA1', ts: Date } }
+
+const zoneTasks = {
+  A: ["Check extinguishers", "Monitor smoke", "Verify emergency lighting"],
+  B: ["Inspect wiring", "Standby", "Clean HVAC filters"],
+  C: ["Server rack check", "Backup power verification"],
+  D: ["Monitor storage", "Check ventilation", "ESP32 calibration"],
+  E: ["Corridor clearance", "Exit door test"]
+};
+
+// Initialize TASKS_DEF from zoneTasks
+let TASKS_DEF = [];
+function initTasksDefinition() {
+  TASKS_DEF = [];
+  Object.keys(zoneTasks).forEach(z => {
+    zoneTasks[z].forEach((taskName, index) => {
+      TASKS_DEF.push({
+        id: `task-${z}-${index}`,
+        name: taskName,
+        zone: z,
+        icon: '📋',
+        desc: `Routine maintenance task for Zone ${z}: ${taskName}.`,
+        steps: [`Inspect location in Zone ${z}`, `Perform ${taskName}`, `Verify completion`, `Record timestamp`],
+        assignedTo: z
+      });
+    });
+  });
+}
+initTasksDefinition();
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let CU = null, connMode = 'sim', activeView = 'dashboard';
+let prevLevel = 0, dispatchFired = false, evacActive = false;
+let evacZones = new Set(); 
+let pollTimer = null, simZone = null;
+let currentTaskId = null, taskState = {};
+let logHistory = [];
+let tChart = null, sChart = null, cChart = null;
+let tData = [], sData = [], hData = [], labels = [];
+const MAX_HIST = 30;
+let fanOverride = false, pumpOverride = false;
+let fanState = false, pumpState = false;
+// People animation
+let people = [], pplTimer = null;
+
+// ═══════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const gv = id => { const e=$(id); return e?e.value.trim():''; };
+
+// Hardware flag for Zone D focus
+let gdHardwareActive = false;
+
+function log(msg, type='info') {
+  const t = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  logHistory.unshift({ t, msg, type });
+  if(logHistory.length > 200) logHistory.length = 200;
+  renderLog();
+}
+
+function renderLog() {
+  const el = $('dashLog'); if(!el) return;
+  el.innerHTML = logHistory.slice(0,10).map(l =>
+    `<div class="log-item l-${l.type}"><span class="log-t">${l.t}</span><span class="log-msg">${l.msg}</span></div>`
+  ).join('');
+  const lc = $('logCount'); if(lc) lc.textContent = logHistory.length + ' events';
+}
+
+function fmtUptime(s) {
+  if(s < 60) return s + 's';
+  if(s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════════════
+function setConn(mode, el) {
+  connMode = mode;
+  document.querySelectorAll('.lconn-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  $('hwConf').style.display = mode==='hw'?'block':'none';
+}
+
+function selRole(r, el) {
+  document.querySelectorAll('.lrole').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function doLogin() {
+  const uid = gv('loginUser'), pw = gv('loginPass');
+  const u = USERS[uid];
+  if(!u || u.pass !== pw) {
+    $('loginErr').textContent = 'Invalid Badge ID or Access Code.  Try: admin/admin123, sup/sup123, user/user123';
+    return;
+  }
+  if(connMode==='hw') { const ip=gv('hwIp'); if(ip) DEVS.D=ip; }
+  CU = { ...u, id:uid };
+  $('loginErr').textContent = '';
+  $('loginScreen').style.opacity='0';
+  $('loginScreen').style.transition='opacity .3s';
+  setTimeout(()=>{
+    $('loginScreen').style.display='none';
+    $('app').style.display='flex';
+    initApp();
+    log(`${CU.role} ${CU.badge} authenticated — ${connMode==='hw'?'Hardware mode':'Simulation mode'}`, 'info');
+  }, 320);
+}
+
+function doLogout() {
+  stopPolling(); if(pplTimer){ clearInterval(pplTimer); pplTimer=null; }
+  CU=null; dispatchFired=false;
+  $('app').style.display='none';
+  const ls=$('loginScreen');
+  ls.style.display='flex'; ls.style.opacity='0';
+  setTimeout(()=>{ ls.style.transition='opacity .3s'; ls.style.opacity='1'; }, 10);
+}
+
+// ═══════════════════════════════════════════════════════
+//  APP INIT
+// ═══════════════════════════════════════════════════════
+function initApp() {
+  // ── User badge in sidebar ──
+  $('ubDot').style.background = CU.color;
+  $('ubName').textContent = CU.badge;
+  $('ubRole').textContent  = CU.role;
+
+  // ── Role pill in topbar ──
+  let rp = $('rolePill');
+  if (!rp) {
+    rp = document.createElement('div');
+    rp.id = 'rolePill';
+    rp.style.cssText = 'padding:3px 11px;border-radius:20px;font-size:.65rem;font-weight:700;font-family:var(--mono);letter-spacing:.4px;border:1px solid;margin-right:4px;flex-shrink:0';
+    const tbTime = $('tbTime');
+    if (tbTime) tbTime.parentNode.insertBefore(rp, tbTime);
+  }
+  const roleStyles = {
+    admin: { bg:'var(--redb)',  color:'var(--red)',  border:'var(--redbr)',  label:'ADMIN' },
+    sup:   { bg:'var(--blub)', color:'var(--blu)',  border:'var(--blubr)', label:'SUPERVISOR' },
+    user:  { bg:'var(--grnb)', color:'var(--grn)',  border:'var(--grnbr)', label:'OPERATOR' }
+  };
+  const rs = roleStyles[CU.id] || roleStyles.user;
+  rp.style.background = rs.bg; rp.style.color = rs.color; rp.style.borderColor = rs.border;
+  rp.textContent = rs.label;
+
+  applyRoleGating();
+
+  // Chat FAB (admin + sup only)
+  if ($('chatFab')) $('chatFab').style.display = CU.level >= 2 ? 'flex' : 'none';
+
+  // Build static views
+  buildZoneList();
+  buildEvacGrid();
+  buildTaskList();
+  buildDeviceList();
+  buildESPConfig();
+  buildCtrlButtons();
+  initCharts();
+  initPeople();
+  startPeopleAnim();
+  updateTH();
+  updateMarkers();
+
+  // Clock
+  setInterval(()=>{ const t=new Date(); const el=$('tbTime'); if(el) el.textContent=t.toLocaleTimeString('en-IN'); },1000);
+
+  startPolling();
+  initSocket();
+  setTimeout(detectLocalIP, 800);
+}
+
+// Socket.io initialization
+let socket;
+function initSocket() {
+  if (typeof io === 'undefined') {
+    console.warn('[SOCKET] Socket.IO library not found. Running in local mode.');
+    return;
+  }
+
+  try {
+    socket = io();
+    
+    socket.on('taskUpdate', (serverTasks) => {
+      console.log('[SOCKET] Tasks Updated:', serverTasks);
+      syncServerTasks(serverTasks);
+    });
+    
+    socket.on('stateUpdate', (serverState) => {
+      if (serverState && serverState.lastHardwareUpdate) {
+         // syncing logic
+      }
+    });
+
+    socket.on('sensorUpdate', (data) => {
+      if (data && Z[data.zone]) {
+        Z[data.zone].temp = data.temp;
+        Z[data.zone].smoke = data.smoke;
+        Z[data.zone].humidity = data.humidity;
+        Z[data.zone].hw = true;
+        updateUI();
+      }
+    });
+    
+    socket.on('connect_error', (err) => {
+      console.warn('[SOCKET] Connection failed:', err.message);
+    });
+
+  } catch (e) {
+    console.error('[SOCKET] Init Error:', e);
+  }
+}
+
+function syncServerTasks(st) {
+  // Convert server tasks to TASKS_DEF format or render directly
+  renderUserTasks(st);
+}
+
+function renderUserTasks(tasks) {
+  const container = document.getElementById('taskList');
+  if (!container || !CU) return;
+
+  // Filter: Operators see only their specific zone tasks
+  // Supervisors/Admins see everything
+  const myTasks = CU.zone !== null 
+    ? tasks.filter(t => t.zone === CU.zone)
+    : tasks;
+
+  if (myTasks.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--t4)">No tasks assigned to your zone.</div>';
+    return;
+  }
+
+  container.innerHTML = myTasks.map(task => `
+    <div class="task-card ${task.status === 'DONE' ? 'done' : ''}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--rad);margin-bottom:8px">
+      <div>
+        <div style="font-weight:700;font-size:.85rem;color:var(--t1)">${task.text}</div>
+        <div style="font-size:.65rem;color:var(--t3);font-family:var(--mono)">ZONE ${task.zone} · ID: ${task.id}</div>
+      </div>
+      <button 
+        class="btn ${task.status === 'DONE' ? 'btn-grn' : 'btn-blu'}" 
+        style="min-width:100px"
+        onclick="completeTask(${task.id})"
+        ${task.status === 'DONE' ? 'disabled' : ''}
+      >
+        ${task.status === 'DONE' ? 'COMPLETED' : 'COMPLETE'}
+      </button>
+    </div>
+  `).join('');
+}
+
+function completeTask(taskId) {
+  fetch('/api/tasks/complete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ taskId })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) showToast('✅ Task marked as completed');
+  })
+  .catch(err => console.error('Task error:', err));
+}
+
+// ═══════════════════════════════════════════════════════
+//  ROLE GATING — single source of truth
+// ═══════════════════════════════════════════════════════
+function applyRoleGating() {
+  const ALL_NAVS = ['dashboard','zones','sensors','analytics','evac','safety','tasks','devices','settings'];
+
+  // 1. Nav tabs: show only what role allows
+  ALL_NAVS.forEach(v => {
+    const el = $('nav-'+v);
+    if (el) el.style.display = canView(v) ? 'flex' : 'none';
+  });
+
+  // 2. Simulation card (admin only)
+  const sc = $('simCard');
+  if (sc) {
+    if (CU.perms.sim) { sc.style.display='block'; buildSimBtns(); }
+    else               { sc.style.display='none'; }
+  }
+
+  // 3. Manual control buttons (admin only)
+  buildCtrlButtons();
+
+  // 4. Evacuation action buttons (supervisor+ only)
+  const evacBtns = document.querySelectorAll('#v-evac .btn-row button');
+  evacBtns.forEach(b => {
+    b.style.display = CU.level >= 2 ? '' : 'none';
+  });
+
+  // 5. Settings card (admin only) — hide the threshold push button for lower roles
+  const pushBtn = document.querySelector('#v-settings .btn-blu');
+  if (pushBtn) pushBtn.style.display = CU.perms.ctrl ? '' : 'none';
+
+  // 6. Admin-only badge on topbar hint
+  const tpill = $('sysPill');
+  if (tpill && CU.id === 'admin') tpill.title = 'Admin — full control active';
+
+  // 7. Default view: first allowed tab for role
+  const firstView = CU.nav[0] || 'dashboard';
+  switchView(firstView);
+}
+
+// ═══════════════════════════════════════════════════════
+//  VIEW SWITCHING
+// ═══════════════════════════════════════════════════════
+function switchView(v) {
+  // Guard: block unauthorized view access
+  if (CU && !canView(v)) {
+    showToast(`⛔ ${CU.role} does not have access to this view.`);
+    return;
+  }
+  activeView = v;
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const vEl=$('v-'+v); if(vEl) vEl.classList.add('active');
+  const nEl=$('nav-'+v); if(nEl) nEl.classList.add('active');
+  if(v==='analytics') renderCharts();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ZONE MAP — SINGLE CLICK (fullscreen overlay)
+// ═══════════════════════════════════════════════════════
+let _zoneClickTimer = null; // debounce single vs double click
+
+function zoneClick(e, zId) {
+  e.stopPropagation();
+  console.log('ZONE CLICK:', CU ? CU.zone : 'no-user', '→', zId, '| Target status:', Z[zId] ? Z[zId].status : 'unknown');
+
+  // ── DANGER ZONE ENTRY BLOCK ──
+  // Only block non-admin, non-supervisor users from entering danger zones.
+  // An admin/supervisor (CU.zone === null) can always access any zone for monitoring.
+  // A physically-assigned user (CU.zone !== null) is blocked from entering danger zones
+  // UNLESS they are already in that zone (allow exit from danger zones).
+  if (CU && CU.zone !== null && CU.zone !== zId) {
+    const tz = Z[zId];
+    if (tz && (tz.status === 'fire' || tz.status === 'warn')) {
+      showToast('⛔ Entry blocked: ' + zId + ' is a DANGER zone. Use nearest exit route instead.');
+      log('Entry attempt blocked: Zone ' + zId + ' (' + tz.status.toUpperCase() + ')', 'warn');
+      return; // Hard block — movement does not proceed
+    }
+  }
+
+  // Zoom into zone on map
+  const map = $('floorMap');
+  const targetZone = $('zr-' + zId);
+  const bbox = targetZone.getBBox();
+  const centerX = bbox.x + bbox.width / 2;
+  const centerY = bbox.y + bbox.height / 2;
+  map.style.transform = `scale(2.2) translate(${(450 - centerX)/2.2}px, ${(240 - centerY)/2.2}px)`;
+  map.classList.add('zoomed');
+
+  // Debounce: wait 220ms — if dblclick fires first it clears this
+  clearTimeout(_zoneClickTimer);
+  _zoneClickTimer = setTimeout(() => openZoneOverlay(zId), 220);
+}
+
+function openZoneOverlay(zId) {
+  const zd = Z[zId]; if (!zd) return;
+  const st = zd.status || 'safe';
+  const tPct = Math.min(100, (zd.temp / 80) * 100).toFixed(1);
+  const sPct = Math.min(100, (zd.smoke / 4095) * 100).toFixed(1);
+
+  // Populate header
+  $('zoTitle').textContent = `Zone ${zId} — ${zd.name}`;
+  $('zoSub').textContent   = `${DEV_ST[zId] === 'online' ? '📡 ESP32 LIVE' : '🖥 Simulation'}  •  Last updated: ${new Date().toLocaleTimeString('en-IN')}`;
+
+  // KPIs
+  $('zo-temp').textContent  = zd.temp.toFixed(1);
+  $('zo-smoke').textContent = zd.smoke;
+  $('zo-ppl').textContent   = zd.people;
+
+  // Bars
+  $('zo-tbar').style.width = tPct + '%';
+  $('zo-tval').textContent = zd.temp.toFixed(1) + '°C';
+  $('zo-sbar').style.width = sPct + '%';
+  $('zo-sval').textContent = zd.smoke + ' ADC';
+
+  // Equipment pills
+  const fans  = (zd.fans  || []).map(f => `<div class="zo-equip-pill"><div class="zo-equip-dot" style="background:var(--blu)"></div>Fan ${f}</div>`).join('');
+  const pumps = (zd.pumps || []).map(p => `<div class="zo-equip-pill"><div class="zo-equip-dot" style="background:var(--grn)"></div>Pump ${p}</div>`).join('');
+  $('zo-equip').innerHTML = fans + pumps;
+
+  // Status bar
+  const sb = $('zo-statusBar');
+  sb.className = 'zo-status-bar ' + st;
+  const icons = { safe:'✅', warn:'⚠️', fire:'🔥' };
+  const msgs  = {
+    safe: 'All nominal — no action required',
+    warn: 'Warning threshold breached — monitor closely',
+    fire: 'FIRE DETECTED — initiate evacuation immediately'
+  };
+  $('zo-statusIcon').textContent = icons[st];
+  $('zo-statusTxt').textContent  = msgs[st];
+
+  // Open overlay
+  const ov = $('zoneOverlay');
+  ov.classList.add('open');
+}
+
+function closeZoneOverlay(e) {
+  // If clicked inside card, ignore (card has stopPropagation on its own onclick)
+  $('zoneOverlay').classList.remove('open');
+  // Reset map zoom
+  const map = $('floorMap');
+  if(map) {
+    map.style.transform = 'scale(1) translate(0, 0)';
+    map.classList.remove('zoomed');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ZONE MAP — DOUBLE CLICK (floating status toast)
+// ═══════════════════════════════════════════════════════
+let _toastTimer = null;
+
+function zoneDoubleClick(e, zId) {
+  e.stopPropagation();
+  clearTimeout(_zoneClickTimer); // cancel the single-click overlay
+
+  const zd = Z[zId]; if (!zd) return;
+  const st = zd.status || 'safe';
+  const labels = { safe:'✅  SAFE', warn:'⚠️  WARNING', fire:'🔥  DANGER' };
+
+  const toast = $('zoneToast');
+  toast.textContent = `Zone ${zId}  —  ${labels[st]}`;
+  toast.className = st; // reset, then show
+
+  // Position near cursor (keep inside viewport)
+  const pad = 12;
+  let tx = e.clientX + 14;
+  let ty = e.clientY - 44;
+  if (tx + 220 > window.innerWidth)  tx = e.clientX - 230;
+  if (ty < pad) ty = e.clientY + 20;
+  toast.style.left = tx + 'px';
+  toast.style.top  = ty + 'px';
+
+  // Trigger animation
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+
+  // Auto-hide
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2800);
+}
+
+// ── Unified Network Sync ──
+let uiRefreshTimer;
+function startPolling() {
+  // socket is already initialized in initApp -> initSocket
+  
+  // CONTINUOUS REFRESH LOOP (2s)
+  if (uiRefreshTimer) clearInterval(uiRefreshTimer);
+  uiRefreshTimer = setInterval(() => {
+    // 1. Add noise & Handle spikes for ALL zones
+    Object.keys(Z).forEach(z => {
+      const zd = Z[z];
+      
+      // Real-time baseline noise if not hardware-driven (for non-zero lines)
+      if (!zd.hw) {
+        zd.temp += (Math.random() - 0.5) * 0.15;
+        zd.smoke += (Math.random() - 0.5) * 8;
+        // Clamp to realistic mins if needed, but noise is enough
+      }
+
+      // 2. Smooth Spike Transition
+      if (fireState.active && z === fireState.zone) {
+        // Target random spike on top of real values
+        const targetT = 25 + Math.random() * 15; // 25-40 spike
+        const targetS = 600 + Math.random() * 800; // 600-1400 spike
+        fireState.tSpike += (targetT - fireState.tSpike) * 0.2;
+        fireState.sSpike += (targetS - fireState.sSpike) * 0.2;
+      } else if (!fireState.active) {
+        fireState.tSpike *= 0.8;
+        fireState.sSpike *= 0.8;
+      }
+
+      // 3. Final Display Value Calculation (MANDATORY DATA FLOW)
+      // displayValue = realValue + (isFireZone ? spike : 0)
+      const isFireZone = fireState.active && z === fireState.zone;
+      const displayT = zd.temp + (isFireZone ? fireState.tSpike : 0);
+      const displayS = zd.smoke + (isFireZone ? fireState.sSpike : 0);
+
+      // Store display-ready values for UI components (not affectingzd.temp baseline)
+      zd._dispT = displayT;
+      zd._dispS = displayS;
+      zd.status = calcStatus(displayT, displayS);
+    });
+
+    // 4. Update Main Telemetry (GD) - Follow Fire Zone or default to D
+    const activeZoneId = fireState.active ? fireState.zone : 'D';
+    const activeZ = Z[activeZoneId];
+    GD.temperature = activeZ._dispT;
+    GD.smoke       = activeZ._dispS;
+    GD.humidity    = activeZ.humidity || 52;
+    
+    const espEl = $('sbEsp');
+    if (espEl) espEl.textContent = DEV_ST['D'] === 'online' ? 'Server Connected' : 'Local Simulation';
+    const readsEl = $('sbReads');
+    if (readsEl) readsEl.textContent = GD.reads;
+
+    updateUI(); 
+  }, 2000);
+}
+
+function stopPolling() {
+  // Not needed. WebSocket maintains connection.
+}
+
+function calcStatus(t,s) {
+  if(t>=TH.tc||s>=TH.sc) return 'fire';
+  if(t>=TH.tw||s>=TH.sw) return 'warn';
+  return 'safe';
+}
+
+// fetchFromServer removed
+
+// ═══════════════════════════════════════════════════════
+//  UI UPDATE
+// ═══════════════════════════════════════════════════════
+function updateUI() {
+  // STRICT LIVE OVERWRITE: completely replace DOM content directly from GD
+  const t = GD.temperature !== null && GD.temperature !== undefined ? GD.temperature : null;
+  const s = GD.smoke       !== null && GD.smoke       !== undefined ? GD.smoke       : null;
+  const h = GD.humidity    !== null && GD.humidity    !== undefined ? GD.humidity    : null;
+
+  if (t === null || s === null) return;
+
+  // Top bar telemetry without rounding unless necessary
+  if($('tbTmp')) $('tbTmp').textContent = t;
+  if($('tbSmk')) $('tbSmk').textContent = s;
+  if($('tbHum')) $('tbHum').textContent = h !== null ? h : '--';
+  if($('tbAl'))  $('tbAl').textContent  = GD.alerts || 0;
+
+  // Sensor bars (dashboard)
+  const tPct = Math.min(100, t/80*100);
+  const sPct = Math.min(100, s/4095*100);
+  if($('sbv-t')) $('sbv-t').textContent = t + '°C';
+  if($('sbf-t')) $('sbf-t').style.width = tPct + '%';
+  if($('sbv-s')) $('sbv-s').textContent = s + ' ADC';
+  if($('sbf-s')) $('sbf-s').style.width = sPct + '%';
+  if($('sbv-h')) $('sbv-h').textContent = h !== null ? h + '%' : '--';
+  if($('sbf-h')) $('sbf-h').style.width = h !== null ? h + '%' : '0%';
+
+  // Sensor badge
+  const sensorSt = calcStatus(t,s);
+  const sb=$('sensorBadge');
+  if(sb){ sb.className='badge '+(sensorSt==='fire'?'b-fire':sensorSt==='warn'?'b-warn':'b-ok'); sb.textContent=sensorSt.toUpperCase(); }
+
+  // Sensor view (big readouts)
+  if($('bigTemp'))   $('bigTemp').textContent   = t.toFixed(1) + '°C'; 
+  if($('bigTempBar'))$('bigTempBar').style.width = tPct + '%';
+  if($('bigSmoke'))  $('bigSmoke').textContent  = s.toFixed(0) + ' ADC'; 
+  if($('bigSmokeBar'))$('bigSmokeBar').style.width = sPct + '%';
+  
+  if($('espUptime')) $('espUptime').textContent = fmtUptime(GD.uptime);
+  if($('espRSSI'))   $('espRSSI').textContent   = GD.wifiRSSI+' dBm';
+  if($('espFault')){
+    $('espFault').textContent = GD.sensorFault?'⚠ FAULT':'✓ OK';
+    $('espFault').style.color = GD.sensorFault?'var(--red)':'var(--grn)';
+  }
+  // Temp/smoke badges
+  const tb=$('tempBadge'),smb=$('smokeBadge');
+  if(tb){const s2=calcStatus(t,0);tb.className='badge '+(s2==='fire'?'b-fire':s2==='warn'?'b-warn':'b-ok');tb.textContent=s2.toUpperCase();}
+  if(smb){const s2=calcStatus(0,s);smb.className='badge '+(s2==='fire'?'b-fire':s2==='warn'?'b-warn':'b-ok');smb.textContent=s2.toUpperCase();}
+
+  // Actuator status (from hardware if available, otherwise derive)
+  const fanOn  = (gdHardwareActive || Z['D'].hw) ? fanState  : (sensorSt!=='safe');
+  const pumpOn = (gdHardwareActive || Z['D'].hw) ? pumpState : (sensorSt==='fire');
+  const buzzOn = sensorSt!=='safe';
+  const actFan=$('act-fan'),actPump=$('act-pump'),actBuzz=$('act-buzz');
+  if(actFan){ actFan.className='badge '+(fanOn?'b-ok':'b-off'); actFan.textContent=fanOn?'ON':'OFF'; }
+  if(actPump){ actPump.className='badge '+(pumpOn?'b-ok':'b-off'); actPump.textContent=pumpOn?'ON':'OFF'; }
+  if(actBuzz){ actBuzz.className='badge '+(buzzOn?'b-warn':'b-off'); actBuzz.textContent=buzzOn?'ACTIVE':'OFF'; }
+
+  // Chart history
+  const lbl = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  labels.push(lbl); tData.push(t); sData.push(s); hData.push(h);
+  if(labels.length>MAX_HIST){ labels.shift(); tData.shift(); sData.shift(); hData.shift(); }
+  if(activeView==='analytics') renderCharts();
+
+  // Zone states
+  let maxLevel=0;
+  Object.values(Z).forEach(zd=>{
+    if(zd.status==='fire')      maxLevel=Math.max(maxLevel,2);
+    else if(zd.status==='warn') maxLevel=Math.max(maxLevel,1);
+  });
+
+  // System pill
+  const pill=$('sysPill');
+  if(pill){
+    if(maxLevel===2){
+      pill.className='sys-pill sp-fire'; pill.textContent='🔴 FIRE ALERT';
+      $('sbSt').textContent='FIRE ALERT';
+      if(prevLevel<2){
+        GD.alerts=(GD.alerts||0)+1; GD.lastAlert=new Date().toLocaleTimeString('en-IN');
+        $('sbLa').textContent=GD.lastAlert;
+        log('FIRE DETECTED — automated response initiated','fire');
+        if(CU&&CU.perms.dispatch&&!dispatchFired){ 
+          dispatchFired=true; 
+          autoDispatch();
+          const _fireZone = simZone || Object.keys(Z).find(z => Z[z].status==='fire');
+          if(_fireZone) triggerEvac(_fireZone, true); // Auto-trigger evacuation on FIRE
+        }
+        showAlertModal();
+      }
+    } else if(maxLevel===1){
+      pill.className='sys-pill sp-warn'; pill.textContent='🟡 WARNING';
+      $('sbSt').textContent='WARNING';
+      if(prevLevel===0) log('Warning threshold exceeded — monitoring closely','warn');
+    } else {
+      pill.className='sys-pill sp-ok'; pill.textContent='NOMINAL';
+      $('sbSt').textContent='All Nominal';
+      if(prevLevel>0){ log('System returned to nominal','safe'); dispatchFired=false; }
+    }
+  }
+  prevLevel=maxLevel;
+
+  // KPI cards
+  let fires=0,warns=0,safes=0;
+  Object.values(Z).forEach(zd=>{ if(zd.status==='fire') fires++; else if(zd.status==='warn') warns++; else safes++; });
+  if($('kpi-fire'))  $('kpi-fire').textContent=fires;
+  if($('kpi-warn'))  $('kpi-warn').textContent=warns;
+  if($('kpi-safe'))  $('kpi-safe').textContent=safes;
+  if($('kpi-reads')) $('kpi-reads').textContent=GD.reads;
+
+  // KPI Visual Feedback
+  const kpiFire = document.querySelector('.kpi-fire');
+  if(kpiFire) {
+    if(fires > 0) kpiFire.style.boxShadow = '0 8px 32px var(--redb)';
+    else kpiFire.style.boxShadow = 'none';
+  }
+  const kpiWarn = document.querySelector('.kpi-warn');
+  if(kpiWarn) {
+    if(warns > 0) kpiWarn.style.boxShadow = '0 8px 32px var(--ambb)';
+    else kpiWarn.style.boxShadow = 'none';
+  }
+
+  updateZoneList();
+  updateMapZones();
+  updateMapDevices();
+  updateEvacGrid();
+  updateDeviceList();
+  updateSafetyPanel(); // real-time user safety — always runs
+}
+
+// ═══════════════════════════════════════════════════════
+//  USER SAFETY PANEL
+// ═══════════════════════════════════════════════════════
+let _prevSafetyStatus = 'safe';
+let _safetyToastTimer = null;
+
+function updateSafetyPanel() {
+  if (!CU || CU.id !== 'user') return;
+
+  const EXITS = { A:'⇐ Left EXIT (direct)', B:'Zone A → Left EXIT', C:'Zone A → Left EXIT', D:'Zone E → Right EXIT', E:'⇒ Right EXIT (direct)' };
+
+  // System-wide banner
+  const banner = $('safeBanner');
+  const icon = $('safeBannerIcon'), title = $('safeBannerTitle'), sub = $('safeBannerSub');
+
+  // Build SINGLE per-zone card for User's zone
+  const grid = $('safeZoneGrid');
+  const zId = CU.zone || 'B';
+  const zd = Z[zId];
+  if (!zd) return;
+
+  const st = zd.status || 'safe';
+  const isFire = st === 'fire', isWarn = st === 'warn';
+  
+  if (banner) {
+    banner.className = 'safe-banner ' + (isFire ? 'fire' : isWarn ? 'warn' : 'safe');
+    if (isFire) {
+      if (icon)  icon.textContent  = '🚨';
+      if (title) title.textContent = '🚨 DANGER: Fire detected in your zone — Evacuate!';
+      if (sub)   sub.textContent   = `Move to ${EXITS[zId]||''}. Assist others if safe.`;
+    } else if (isWarn) {
+      if (icon)  icon.textContent  = '⚠️';
+      if (title) title.textContent = '⚠️ WARNING in your zone';
+      if (sub)   sub.textContent   = 'Elevated readings detected. Stay alert.';
+    } else {
+      if (icon)  icon.textContent  = '✅';
+      if (title) title.textContent = 'Your Zone is Safe';
+      if (sub)   sub.textContent   = 'No fire or hazard detected. Stay at your post.';
+    }
+  }
+
+  // Update summary counts across all
+  let fires = 0, warns = 0, safes = 0;
+  Object.entries(Z).forEach(([z, d]) => {
+    if (d.status === 'fire') fires++;
+    else if (d.status === 'warn') warns++;
+    else safes++;
+  });
+  if ($('safeSummSafe')) $('safeSummSafe').textContent = safes + ' SAFE';
+  if ($('safeSummWarn')) $('safeSummWarn').textContent = warns + ' WARN';
+  if ($('safeSummFire')) $('safeSummFire').textContent = fires + ' FIRE';
+
+  if (grid) {
+      const stColor = isFire ? 'var(--red)' : isWarn ? 'var(--amb)' : 'var(--grn)';
+      const stBg    = isFire ? 'var(--redb)' : isWarn ? 'var(--ambb)' : 'var(--grnb)';
+      const stBr    = isFire ? 'var(--redbr)' : isWarn ? 'var(--ambbr)' : 'var(--grnbr)';
+      const stLabel = isFire ? '🔥 DANGER' : isWarn ? '⚠ WARNING' : '✓ SAFE';
+      
+      grid.innerHTML = `
+      <div class="card" style="border: ${isFire?'3px solid var(--red)':isWarn?'2px solid var(--amb)':'1px solid var(--bd)'}; background: ${isFire?'var(--redb)':isWarn?'var(--ambb)':'var(--bg1)'}">
+        <div style="font-size:1.1rem;font-weight:700;margin-bottom:12px;color:var(--t1)">📍 My Safety Panel: Zone ${zId} (${zd.name})</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div style="background:var(--bg2);border-radius:8px;padding:12px;border:1px solid var(--bd2)">
+            <div style="font-size:.65rem;font-family:var(--mono);color:var(--t3);text-transform:uppercase">Temp</div>
+            <div style="font-size:1.4rem;font-weight:700;color:${isFire?'var(--red)':'var(--t1)'}">${zd._dispT ? zd._dispT.toFixed(1) : zd.temp.toFixed(1)}°C</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:12px;border:1px solid var(--bd2)">
+            <div style="font-size:.65rem;font-family:var(--mono);color:var(--t3);text-transform:uppercase">Smoke</div>
+            <div style="font-size:1.4rem;font-weight:700;color:${isFire?'var(--red)':'var(--t1)'}">${zd._dispS !== undefined ? zd._dispS.toFixed(0) : zd.smoke}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+           <span style="background:${stBg};color:${stColor};border:1px solid ${stBr};border-radius:20px;padding:6px 14px;font-weight:700">${stLabel}</span>
+           <span style="font-weight:700;color:var(--grn);font-size:.8rem">Exit: ${EXITS[zId]}</span>
+        </div>
+      </div>`;
+  }
+
+  // Toast: fires on first danger transition
+  const satEl  = $('safetyAlertToast');
+  const satMsg = $('safetyAlertMsg');
+  if (satEl && satMsg) {
+    if (isFire && _prevSafetyStatus !== 'fire') {
+      satEl.querySelector('.sat-inner').style.background = 'var(--red)';
+      satMsg.textContent = '🚨 FIRE DETECTED IN YOUR ZONE — EVACUATE IMMEDIATELY';
+      satEl.classList.add('show');
+      playAlarmSound();
+      
+      clearTimeout(_safetyToastTimer);
+      _safetyToastTimer = setTimeout(() => satEl.classList.remove('show'), 9000);
+    } else if (!isFire && _prevSafetyStatus === 'fire') {
+      satEl.classList.remove('show');
+    }
+  }
+  _prevSafetyStatus = st;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ZONE MAP
+// ═══════════════════════════════════════════════════════
+function updateMapZones() {
+  Object.keys(Z).forEach(z=>{
+    const r=$('zr-'+z); if(!r) return;
+    const st=Z[z].status;
+    if(st==='fire'){
+      r.setAttribute('fill','rgba(229,48,48,.18)');
+      r.setAttribute('stroke','rgba(229,48,48,.75)'); r.setAttribute('stroke-width','2.5');
+      r.style.filter='drop-shadow(0 0 12px rgba(229,48,48,.45))';
+      const fire=$('fire-'+z); if(fire) fire.setAttribute('opacity','.75');
+    } else if(st==='warn'){
+      r.setAttribute('fill','rgba(217,119,6,.13)');
+      r.setAttribute('stroke','rgba(217,119,6,.6)'); r.setAttribute('stroke-width','2');
+      r.style.filter='drop-shadow(0 0 6px rgba(217,119,6,.2))';
+      const fire=$('fire-'+z); if(fire) fire.setAttribute('opacity','0');
+    } else {
+      r.setAttribute('fill','rgba(5,150,105,.13)');
+      r.setAttribute('stroke','rgba(5,150,105,.55)'); r.setAttribute('stroke-width','1.8');
+      r.style.filter='drop-shadow(0 0 6px rgba(5,150,105,.15))';
+      const fire=$('fire-'+z); if(fire) fire.setAttribute('opacity','0');
+    }
+  });
+
+  // Door Barricades visual feedback
+  const db = $('doorBarriers');
+  if (db) {
+    db.innerHTML = '';
+    Object.entries(DOORS).forEach(([key, pos]) => {
+      const [from, to] = key.split('-');
+      if (Z[to] && Z[to].status !== 'safe') {
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', pos.x); t.setAttribute('y', pos.y);
+        t.setAttribute('text-anchor', 'middle');
+        t.textContent = '⛔ NO ENTRY';
+        db.appendChild(t);
+      }
+    });
+  }
+}
+
+function updateMapDevices() {
+  Object.keys(Z).forEach(z=>{
+    const zd=Z[z]; const st=zd.status; const fanOn=st!=='safe'; const pumpOn=st==='fire';
+    const fanColor = st==='fire' ? 'rgba(239,68,68,.95)' : fanOn ? 'rgba(34,211,160,.95)' : 'rgba(150,145,135,.6)';
+    const pumpColor = st==='fire' ? 'rgba(239,68,68,.95)' : pumpOn ? 'rgba(34,211,160,.95)' : 'rgba(150,145,135,.6)';
+    
+    zd.fans.forEach(f=>{
+      const r=$('fc-'+f);
+      if(r) { 
+        r.style.color = fanColor; 
+        if(fanOn) { r.style.animation = 'svg-pulse 2.5s infinite'; } else { r.style.animation='none'; }
+      }
+    });
+    zd.pumps.forEach(p=>{
+      const c=$('pr-'+p);
+      if(c) { 
+        c.style.color = pumpColor; 
+        if(pumpOn) { c.style.animation = 'svg-pulse 1s infinite alternate'; } else { c.style.animation='none'; }
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  ZONE LIST
+// ═══════════════════════════════════════════════════════
+function buildZoneList() {
+  const c=$('zoneList'); if(!c) return; c.innerHTML='';
+  Object.keys(Z).forEach(z=>{
+    const d=document.createElement('div');
+    d.id='zi-'+z; d.className='zone-item'; d.onclick=()=>showZoneDetail(z);
+    d.innerHTML=`<div class="zi-row"><span class="zi-name">Zone ${z} <span class="zi-sub">${Z[z].name}</span></span><span class="badge b-ok" id="zb-${z}">SAFE</span></div>
+<div class="zi-vals"><div class="zi-v">Temp: <b id="zt-${z}">--</b>°C</div><div class="zi-v">Smoke: <b id="zs-${z}">--</b></div><div class="zi-v">People: <b>${Z[z].people}</b></div></div>`;
+    c.appendChild(d);
+  });
+}
+
+function updateZoneList() {
+  Object.keys(Z).forEach(z=>{
+    const zd=Z[z]; const item=$('zi-'+z);
+    if(!item) return;
+    item.className='zone-item'+(zd.status==='fire'?' z-fire':zd.status==='warn'?' z-warn':'');
+    const b=$('zb-'+z);
+    if(b){ b.className='badge '+(zd.status==='fire'?'b-fire':zd.status==='warn'?'b-warn':'b-ok'); b.textContent=zd.status.toUpperCase(); }
+    const t=$('zt-'+z); if(t) t.textContent=(zd._dispT || zd.temp).toFixed(1);
+    const s=$('zs-'+z); if(s) s.textContent=(zd._dispS !== undefined ? zd._dispS.toFixed(0) : zd.smoke);
+  });
+}
+
+function showZoneDetail(z) {
+  // ── DANGER ZONE ENTRY BLOCK (Zone List clicks) ──
+  // Same rule as zoneClick: only physically-assigned users are blocked (CU.zone !== null).
+  // They can view their own zone (CU.zone === z) but not enter other dangerous zones.
+  if (CU && CU.zone !== null && CU.zone !== z) {
+    const tz = Z[z];
+    if (tz && (tz.status === 'fire' || tz.status === 'warn')) {
+      showToast('⛔ Entry blocked: Zone ' + z + ' is a DANGER zone.');
+      log('Entry attempt blocked via Zone List: Zone ' + z + ' (' + tz.status.toUpperCase() + ')', 'warn');
+      return;
+    }
+  }
+
+  const zd=Z[z];
+  $('rpTitle').textContent=`Zone ${z} — ${zd.name}`;
+  const sc=zd.status==='fire'?'b-fire':zd.status==='warn'?'b-warn':'b-ok';
+  
+  const zTasks = TASKS_DEF.filter(t => t.zone === z);
+  const tasksHtml = zTasks.length > 0 ? zTasks.map(t => {
+     const ts = taskState[t.id] || {status:'pending'};
+     let stClass = ts.status === 'completed' ? 'b-ok' : ts.status === 'in-progress' ? 'b-warn' : 'b-off';
+     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px;background:var(--bg2);border-radius:6px;margin-bottom:4px;font-size:.65rem">
+        <span>${t.name}</span>
+        <span class="badge ${stClass}">${ts.status.replace('-',' ').toUpperCase()}</span>
+     </div>`;
+  }).join('') : '<div style="font-size:.65rem;color:var(--t4)">No tasks for this zone.</div>';
+
+  $('rpBody').innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="badge ${sc}">${zd.status.toUpperCase()}</span>
+      ${zd.hw?'<span class="badge b-hw">ESP32 LIVE</span>':'<span class="badge b-off">Simulated</span>'}
+    </div>
+    <div class="rp-row"><span class="rp-lb">Temperature</span><span class="rp-val" style="color:${zd.status==='fire'?'var(--red)':'var(--t1)'}">${(zd._dispT || zd.temp).toFixed(1)}°C</span></div>
+    <div class="rp-row"><span class="rp-lb">Smoke ADC</span><span class="rp-val" style="color:${zd.status==='fire'?'var(--red)':'var(--amb)'}">${(zd._dispS !== undefined ? zd._dispS.toFixed(0) : zd.smoke)}</span></div>
+    <div class="rp-row"><span class="rp-lb">Status</span><span class="rp-val">${zd.status.toUpperCase()}</span></div>
+    <div class="rp-row"><span class="rp-lb">Personnel</span><span class="rp-val">${zd.people} persons</span></div>
+    <div class="rp-row"><span class="rp-lb">Nearest Exit</span><span class="rp-val" style="color:var(--grn);font-size:.62rem">${EVAC[z]}</span></div>
+    
+    <div style="margin-top:12px">
+      <div class="sec-label" style="margin-bottom:6px">ZONE TASKS</div>
+      ${tasksHtml}
+    </div>
+
+    ${CU&&CU.perms.sim&&zd.status==='safe'?`<button class="btn btn-red" style="width:100%;margin-top:10px" onclick="triggerFireZone('${z}')">Simulate Fire in Zone ${z}</button>`:''}
+    ${zd.status!=='safe'?`<button class="btn btn-grn" style="width:100%;margin-top:6px" onclick="clearZone('${z}')">Clear Zone ${z}</button>`:''}
+  `;
+  $('rp').style.display='flex';
+}
+
+function closeRP() { $('rp').style.display='none'; }
+
+// ═══════════════════════════════════════════════════════
+//  SIMULATION
+// ═══════════════════════════════════════════════════════
+function buildSimBtns() {
+  const c=$('simZoneBtns'); if(!c) return; c.innerHTML='';
+  Object.keys(Z).forEach(z=>{
+    const btn=document.createElement('button');
+    btn.className='btn btn-red'; btn.textContent='Fire Zone '+z;
+    btn.onclick=()=>triggerFireZone(z);
+    c.appendChild(btn);
+  });
+}
+
+function triggerFireZone(z) {
+  if (!can('sim')) return;
+  fireState.active = true;
+  fireState.zone = z;
+  log(`[SIM] Fire simulation layer ACTIVE in Zone ${z}`, 'fire');
+  if (z === lastZoneDetail) showZoneDetail(z);
+}
+
+function clearZone(z) {
+  if (fireState.zone === z) {
+    fireState.active = false;
+    fireState.zone = null;
+    log(`[SIM] Fire simulation cleared for Zone ${z}`, 'safe');
+  }
+  if (z === lastZoneDetail) showZoneDetail(z);
+}
+
+function clearAllZones() {
+  fireState.active = false;
+  fireState.zone = null;
+  log('All simulation states reset', 'safe');
+  updateUI();
+}
+
+let lastZoneDetail = null;
+
+// ═══════════════════════════════════════════════════════
+//  EVACUATION
+// ═══════════════════════════════════════════════════════
+function buildEvacGrid() {
+  const g=$('evacGrid'); if(!g) return;
+  g.innerHTML=Object.keys(Z).map(z=>`
+    <div class="evac-zone" id="ev-${z}">
+      <div class="ez-nm">Zone ${z}</div>
+      <div class="ez-st" id="ev-st-${z}" style="color:var(--grn)">NOMINAL</div>
+      <div class="ez-rt">${EVAC[z]}</div>
+    </div>
+  `).join('');
+}
+
+function updateEvacGrid() {
+  Object.keys(Z).forEach(z=>{
+    const zd=Z[z]; const ev=$('ev-'+z); const st=$('ev-st-'+z); if(!ev) return;
+    if(evacZones.has(z)){
+      ev.className='evac-zone evac-active'; st.textContent='EVACUATING'; st.style.color='var(--amb)';
+    } else if(zd.status==='fire'){
+      ev.className='evac-zone fire'; st.textContent='FIRE DETECTED'; st.style.color='var(--red)';
+    } else if(zd.status==='warn'){
+      ev.className='evac-zone'; st.textContent='WARNING'; st.style.color='var(--amb)';
+    } else {
+      ev.className='evac-zone'; st.textContent='NOMINAL'; st.style.color='var(--grn)';
+    }
+  });
+}
+
+function triggerEvac(zId, isAuto=false) {
+  if (!isAuto && !can('dispatch')) return;
+  const targetZone = zId || simZone || Object.keys(Z).find(z=>Z[z].status==='fire');
+  if (targetZone) {
+    evacZones.add(targetZone);
+    evacActive = true;
+    log(`EVACUATION TRIGGERED — Zone ${targetZone}`, 'fire');
+    people.forEach(p => { if(p.zone === targetZone) p.evac = true; });
+  } else {
+    // Fallback if no specific zone, but active fire exists
+    Object.keys(Z).forEach(z => {
+       if (Z[z].status === 'fire') {
+          evacZones.add(z);
+          people.forEach(p => { if(p.zone === z) p.evac = true; });
+       }
+    });
+    evacActive = evacZones.size > 0;
+    log('EVACUATION TRIGGERED — all fire zones', 'fire');
+  }
+
+  const b=$('evacBadge'); if(b){ b.className='badge b-fire'; b.textContent='ACTIVE'; }
+  const i=$('evacInfo'); if(i) i.innerHTML='<span style="color:var(--red);font-weight:600">EVACUATION IN PROGRESS</span> — Targeted zones evacuating.';
+  updateEvacGrid();
+}
+
+function clearEvac() {
+  if (!can('dispatch')) return;
+  evacActive=false;
+  evacZones.clear();
+  const b=$('evacBadge'); if(b){ b.className='badge b-off'; b.textContent='STANDBY'; }
+  const i=$('evacInfo'); if(i) i.textContent='All zones nominal. No evacuation required.';
+  log('Evacuation cleared — all zones returned to standby','safe');
+  people.forEach(p=>{ p.evac=false; p.done=false; });
+  updateEvacGrid();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TASKS
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+//  FAULT SYSTEM
+// ═══════════════════════════════════════════════════════
+function setDeviceFault(type, id) {
+  if (!can('ctrl')) return;   // admin only
+  const d = DEVICES[type][id]; if (!d) return;
+  d.status = 'fault';
+  FAULTS[id] = { type, id, name: d.name, zone: d.zone, ts: new Date() };
+  log(`⚠️ FAULT injected: ${d.name} (Zone ${d.zone})`, 'warn');
+
+  // Auto-create a repair task assigned to Operators
+  const taskId = 'fault-' + id;
+  if (!TASKS_DEF.find(t => t.id === taskId)) {
+    TASKS_DEF.push({
+      id: taskId,
+      name: 'Repair ' + d.name,
+      zone: d.zone,  // Use raw zone letter matching Z[id]
+      icon: '🔧',
+      assignedTo: 'user',   // operator only
+      isFault: true,
+      desc: `Hardware fault detected on ${d.name} in Zone ${d.zone}. Inspect and restore to normal operation.`,
+      steps: [
+        `Go to Zone ${d.zone} and locate ${d.name}`,
+        'Visually inspect for damage, obstruction or wiring issues',
+        'Run diagnostic check or reset the unit',
+        'Confirm device returns to NORMAL status',
+        'Log repair in maintenance record'
+      ]
+    });
+  } else {
+    // Re-open if already resolved
+    taskState['fault-' + id] = { done: false, steps: [] };
+  }
+  showToast(`⚠️ FAULT on ${d.name} — repair task auto-created for Operators`);
+  updateDeviceList();
+  buildTaskList();
+  updateFaultBanner();
+}
+
+function clearDeviceFault(type, id) {
+  if (!can('ctrl')) return;
+  const d = DEVICES[type][id]; if (!d) return;
+  d.status = 'ok';
+  delete FAULTS[id];
+  // Mark associated task done
+  const ts = taskState['fault-' + id];
+  if (ts && !ts.done) { ts.done = true; ts.steps = [1,2,3,4,5].map(()=>Date.now()); }
+  log(`✅ Fault cleared: ${d.name}`, 'safe');
+  showToast(`✅ ${d.name} returned to NORMAL`);
+  updateDeviceList();
+  buildTaskList();
+  updateFaultBanner();
+}
+
+function updateFaultBanner() {
+  const faultTasks = TASKS_DEF.filter(t => t.isFault && !(taskState[t.id]||{}).done);
+  const faultCount = Object.keys(FAULTS).length;
+
+  // Fault count badge on task header
+  const fc = $('taskFaultCount');
+  if (fc) {
+    if (faultCount > 0) {
+      fc.style.display = 'inline-flex';
+      fc.className = 'badge b-fault';
+      fc.textContent = faultCount + (faultCount===1?' FAULT':' FAULTS');
+    } else {
+      fc.style.display = 'none';
+    }
+  }
+
+  // Fault banner
+  const banner = $('faultBanner');
+  const bannerTxt = $('faultBannerTxt');
+  if (banner) {
+    if (faultTasks.length > 0) {
+      banner.style.display = 'flex';
+      const names = faultTasks.map(t => t.name).join(', ');
+      if (bannerTxt) bannerTxt.textContent = `${faultTasks.length} active fault(s): ${names}`;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  // Device header fault counts
+  const fanFaults  = Object.values(DEVICES.fans).filter(d=>d.status==='fault').length;
+  const pumpFaults = Object.values(DEVICES.pumps).filter(d=>d.status==='fault').length;
+  const snsFaults  = Object.values(DEVICES.sensors).filter(d=>d.status==='fault').length;
+  const setFC = (id, n, type) => {
+    const el = $(id); if (!el) return;
+    el.textContent = n > 0 ? n + ' FAULT' : '';
+    el.className = n > 0 ? 'badge b-fault' : 'badge b-off';
+    el.style.display = n > 0 ? 'inline-flex' : 'none';
+  };
+  setFC('fanFaultCount',    fanFaults,  'fans');
+  setFC('pumpFaultCount',   pumpFaults, 'pumps');
+  setFC('sensorFaultCount', snsFaults,  'sensors');
+}
+
+// Equipment strip for Operator — shows devices in their task zones
+function buildEquipmentStrip() {
+  const strip = $('equipStrip');
+  const chips = $('equipChips');
+  if (!strip || !chips) return;
+
+  // Operator sees status of all devices across all zones
+  const allDevices = [
+    ...Object.entries(DEVICES.fans).map(([id,d])=>({id,type:'fans',...d})),
+    ...Object.entries(DEVICES.pumps).map(([id,d])=>({id,type:'pumps',...d}))
+  ];
+
+  if (allDevices.length === 0) { strip.style.display='none'; return; }
+  strip.style.display = 'block';
+  chips.innerHTML = allDevices.map(d => {
+    const isFault = d.status === 'fault';
+    const color = isFault ? 'var(--red)' : d.status==='warn' ? 'var(--amb)' : 'var(--grn)';
+    const label = isFault ? 'FAULT' : d.status==='warn' ? 'WARN' : 'NORMAL';
+    return `<div class="equip-chip${isFault?' fault':''}">
+      <div class="equip-chip-dot" style="background:${color}"></div>
+      <div><div class="equip-chip-nm">${d.name}</div><div class="equip-chip-st">Zone ${d.zone} · ${label}</div></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  DEVICE LIST
+// ═══════════════════════════════════════════════════════
+function buildDeviceList() { updateDeviceList(); }
+function updateDeviceList() {
+  const fl=$('fanList'), pl=$('pumpList'), sl=$('sensorList');
+  const isAdmin = CU && CU.id === 'admin';
+
+  function devRow(type, id, d) {
+    const isFault = d.status === 'fault';
+    const isWarn  = d.status === 'warn';
+    const ledColor = isFault ? 'var(--red)' : isWarn ? 'var(--amb)' : 'var(--grn)';
+    const statusBadge = isFault
+      ? '<span class="badge b-fault">FAULT</span>'
+      : isWarn ? '<span class="badge b-warn">WARN</span>'
+      : '<span class="badge b-ok">NORMAL</span>';
+    const faultBtn = isAdmin
+      ? (isFault
+          ? `<button class="dev-fault-btn clear" onclick="clearDeviceFault('${type}','${id}')">✓ Clear</button>`
+          : `<button class="dev-fault-btn inject" onclick="setDeviceFault('${type}','${id}')">⚡ Fault</button>`)
+      : '';
+    const metaInfo = type==='fans'
+      ? (d.rpm ? d.rpm+' RPM' : '— RPM')
+      : type==='pumps'
+        ? (d.pressure ? d.pressure+' bar' : '— bar')
+        : `Bat: ${d.battery}% | Sig: ${d.signal}%`;
+    return `<div class="dev-item${isFault?' fault':''}">
+      <div style="display:flex;align-items:center;gap:8px;flex:1">
+        <div class="dev-led" style="background:${ledColor}"></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="dev-nm">${d.name}</span>
+            ${statusBadge}
+          </div>
+          <div class="dev-sub">Zone ${d.zone} · ${metaInfo}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${faultBtn}
+      </div>
+    </div>`;
+  }
+
+  if(fl) fl.innerHTML = Object.entries(DEVICES.fans).map(([id,d])   => devRow('fans',   id, d)).join('');
+  if(pl) pl.innerHTML = Object.entries(DEVICES.pumps).map(([id,d])  => devRow('pumps',  id, d)).join('');
+  if(sl) sl.innerHTML = `<div class="g3">${Object.entries(DEVICES.sensors).map(([id,d]) => {
+    const isFault=d.status==='fault', isWarn=d.battery<30;
+    const ledColor = isFault ? 'var(--red)' : isWarn ? 'var(--amb)' : 'var(--grn)';
+    const faultBtn = isAdmin
+      ? (isFault
+          ? `<button class="dev-fault-btn clear" onclick="clearDeviceFault('sensors','${id}')">✓ Clear</button>`
+          : `<button class="dev-fault-btn inject" onclick="setDeviceFault('sensors','${id}')">⚡ Fault</button>`)
+      : '';
+    return `<div class="card${isFault?' style="border:1px solid var(--redbr)"':''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="dev-led" style="background:${ledColor}"></div>
+          <span class="dev-nm">${d.name}</span>
+          ${isFault ? '<span class="badge b-fault">FAULT</span>' : isWarn ? '<span class="badge b-warn">LOW BATT</span>' : '<span class="badge b-ok">OK</span>'}
+        </div>
+        ${faultBtn}
+      </div>
+      <div class="dev-sub">Zone ${d.zone}</div>
+      <div style="margin-top:6px;font-family:var(--mono);font-size:.7rem">
+        Battery: <span style="color:${isWarn?'var(--amb)':'var(--grn)'}">${d.battery}%</span><br>
+        Signal: ${d.signal}%
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+
+  updateFaultBanner();
+}
+// ═══════════════════════════════════════════════════════
+
+function buildTaskList() {
+  const c=$('taskList'); if(!c) return;
+  TASKS_DEF.forEach(t=>{ if(!taskState[t.id]) taskState[t.id]={status:'pending',steps:[]}; });
+
+  const rnEl = $('taskRoleNote');
+  const titleEl = $('taskViewTitle');
+  
+  let visibleTasks = TASKS_DEF;
+  
+  if (CU && CU.id === 'user') {
+    if(rnEl) rnEl.textContent=`🔧 Zone ${CU.zone} assigned tasks`; 
+    if(titleEl) titleEl.textContent='My Tasks';
+    visibleTasks = TASKS_DEF.filter(t => t.zone === CU.zone);
+  } else if (CU && CU.id === 'admin') {
+    if(rnEl) rnEl.textContent='👑 Admin — all tasks'; 
+    if(titleEl) titleEl.textContent='All Tasks';
+  } else if (CU && CU.id === 'sup') {
+    if(rnEl) rnEl.textContent='👁 View only'; 
+    if(titleEl) titleEl.textContent='Task Monitor';
+  }
+
+  if (CU && CU.id === 'user') buildEquipmentStrip();
+  else { const s=$('equipStrip'); if(s) s.style.display='none'; }
+
+  updateFaultBanner();
+
+  const isReadOnly = CU && CU.id === 'sup';
+
+  c.innerHTML = visibleTasks.map(t => {
+    const ts = taskState[t.id] || {status:'pending', steps:[]};
+    const status = ts.status;
+    const isFault = t.isFault;
+    const openFault = isFault && status !== 'completed';
+    const borderStyle = openFault ? 'border-left:3px solid var(--red)' : '';
+    
+    let statusClass = 'b-off';
+    if(status === 'in-progress') statusClass = 'b-warn';
+    if(status === 'completed') statusClass = 'b-ok';
+
+    return `<div class="task-card${status === 'completed'?' done':''}" style="${borderStyle}" onclick="openTask('${t.id}')">
+      <div class="task-hd">
+        <span style="font-size:1.1rem">${status === 'completed'?'✅':t.icon}</span>
+        <span class="task-nm${status === 'completed'?' done':''}">${t.name}</span>
+        <div style="display:flex;gap:4px;align-items:center;margin-left:auto">
+          <span class="badge b-off" style="font-size:.55rem">Zone ${t.zone}</span>
+          <span class="badge ${statusClass}" style="font-size:.55rem">${status.replace('-',' ').toUpperCase()}</span>
+          ${isReadOnly ? '<span class="badge b-hw" style="font-size:.52rem">VIEW ONLY</span>' : ''}
+        </div>
+      </div>
+      <div class="task-desc">${t.desc}</div>
+      <div style="width:100%;background:var(--bg4);height:4px;border-radius:2px;margin-top:8px;overflow:hidden">
+        <div style="width:${ts.steps.length===0?0:Math.round((ts.steps.length/t.steps.length)*100)}%;background:${status === 'completed'?'var(--grn)':status === 'in-progress'?'var(--amb)':'var(--blu)'};height:100%;transition:width 0.3s"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const tp=$('taskProgress');
+  const doneCount=visibleTasks.filter(t=>taskState[t.id]&&taskState[t.id].status === 'completed').length;
+  if(tp) tp.textContent=doneCount+' / '+visibleTasks.length+' complete';
+}
+
+function openTask(tid) {
+  currentTaskId=tid;
+  const t=TASKS_DEF.find(x=>x.id===tid); if(!t) return;
+  const ts=taskState[tid]||{status:'pending',steps:[]};
+  const isReadOnly = CU && CU.id === 'sup';
+  $('taskMdlTitle').textContent=t.icon+' '+t.name;
+  
+  let stepsHtml = t.steps.map((s,i)=>{
+    const d=i<ts.steps.length;
+    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bd)">
+      <div style="width:18px;height:18px;border-radius:50%;border:1px solid ${d?'var(--grn)':'var(--bd2)'};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:var(--grn);flex-shrink:0;background:${d?'var(--grnb)':'transparent'}">${d?'✓':i+1}</div>
+      <div style="font-size:.75rem;color:${d?'var(--t4)':'var(--t2)'};${d?'text-decoration:line-through':''}">${s}</div>
+    </div>`;
+  }).join('');
+
+  $('taskMdlBody').innerHTML=`
+    ${t.isFault?`<div style="background:var(--redb);border:1px solid var(--redbr);border-radius:var(--rad);padding:8px 12px;margin-bottom:12px;font-size:.72rem;color:var(--red);font-weight:600">⚠️ FAULT REPAIR TASK — Zone ${t.zone}</div>`:''}
+    <div style="font-size:.78rem;color:var(--t2);line-height:1.8;margin-bottom:14px">${t.desc}</div>
+    <div class="sec-label" style="margin-bottom:8px">STATUS: <span style="color:var(--blu)">${ts.status.toUpperCase()}</span></div>
+    <div class="sec-label" style="margin-bottom:8px">STEPS (${ts.steps.length}/${t.steps.length})</div>
+    ${stepsHtml}
+    <div style="font-size:.62rem;color:var(--t4);font-family:var(--mono);margin-top:10px">📍 Zone ${t.zone}</div>
+  `;
+
+  const btn=$('taskMdlBtn');
+  if (isReadOnly) {
+    btn.textContent = 'Close (View Only)';
+    btn.onclick = () => closeMdl('taskModal');
+  } else if (ts.status === 'completed') {
+    btn.textContent = 'Completed ✓';
+    btn.disabled = true;
+    btn.className = 'btn';
+  } else if (ts.status === 'pending') {
+    btn.textContent = 'Start Task';
+    btn.disabled = false;
+    btn.onclick = () => { ts.status = 'in-progress'; openTask(tid); buildTaskList(); };
+    btn.className = 'btn btn-blu';
+  } else if (ts.steps.length < t.steps.length) {
+    btn.textContent = `Complete Step ${ts.steps.length + 1}`;
+    btn.disabled = false;
+    btn.onclick = advanceTask;
+    btn.className = 'btn btn-grn';
+  } else {
+    btn.textContent = 'Mark Completed ✓';
+    btn.disabled = false;
+    btn.onclick = advanceTask;
+    btn.className = 'btn btn-grn';
+  }
+  openMdl('taskModal');
+}
+
+function advanceTask() {
+  if (!currentTaskId) return;
+  const t=TASKS_DEF.find(x=>x.id===currentTaskId); if(!t) return;
+  const ts=taskState[currentTaskId];
+  
+  if(ts.steps.length < t.steps.length){ 
+    ts.steps.push(Date.now()); 
+    if(ts.steps.length === t.steps.length) ts.status = 'completed';
+    else ts.status = 'in-progress';
+    openTask(currentTaskId); 
+  } else {
+    ts.status = 'completed';
+    closeMdl('taskModal');
+  }
+  
+  if (t.isFault && ts.status === 'completed') {
+    const devId = currentTaskId.replace('fault-','');
+    let fnd = false;
+    ['fans','pumps','sensors'].forEach(tp => { if(DEVICES[tp][devId]) { DEVICES[tp][devId].status='ok'; delete FAULTS[devId]; fnd=true; } });
+    if(fnd) { log('Fault resolved via task: '+t.name+' by '+CU.badge,'safe'); }
+  }
+  
+  if(ts.status === 'completed') log('Task completed: '+t.name+' by '+CU.badge,'safe');
+  
+  updateDeviceList();
+  buildTaskList();
+  updateFaultBanner();
+}
+
+
+
+// ═══════════════════════════════════════════════════════
+//  CHARTS
+// ═══════════════════════════════════════════════════════
+function initCharts() {
+  const cfg = (id,color,label) => {
+    const ctx=$( id); if(!ctx) return null;
+    return new Chart(ctx,{
+      type:'line',
+      data:{ labels:[], datasets:[{ label, data:[], borderColor:color, backgroundColor:color+'18', tension:.3, pointRadius:1, borderWidth:2, fill:true }] },
+      options:{ responsive:true, maintainAspectRatio:false, animation:{duration:0},
+        plugins:{ legend:{display:false} },
+        scales:{ x:{ticks:{color:'rgba(90,107,130,.8)',font:{size:10},maxTicksLimit:8},grid:{color:'rgba(255,255,255,.04)'}},
+                 y:{ticks:{color:'rgba(90,107,130,.8)',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}} } }
+    });
+  };
+  tChart = cfg('chartTemp','#f43f3f','Temperature °C');
+  sChart = cfg('chartSmoke','#f59e0b','Smoke ADC');
+  cChart = (() => {
+    const ctx=$('chartCombined'); if(!ctx) return null;
+    return new Chart(ctx,{
+      type:'line',
+      data:{ labels:[], datasets:[
+        { label:'Temp', data:[], borderColor:'#f43f3f', tension:.3, pointRadius:0, borderWidth:1.5, yAxisID:'y' },
+        { label:'Humidity', data:[], borderColor:'#3b82f6', tension:.3, pointRadius:0, borderWidth:1.5, yAxisID:'y1' }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, animation:{duration:0},
+        plugins:{ legend:{display:true, labels:{color:'rgba(155,170,191,.8)',font:{size:10},boxWidth:10}} },
+        scales:{
+          x:{ ticks:{color:'rgba(90,107,130,.8)',font:{size:9},maxTicksLimit:6}, grid:{color:'rgba(255,255,255,.04)'} },
+          y:{ ticks:{color:'rgba(244,63,63,.7)',font:{size:9}}, grid:{color:'rgba(255,255,255,.04)'} },
+          y1:{ position:'right', ticks:{color:'rgba(59,130,246,.7)',font:{size:9}}, grid:{display:false} }
+        }}
+    });
+  })();
+}
+
+function renderCharts() {
+  if(tChart){ tChart.data.labels=labels.slice(); tChart.data.datasets[0].data=tData.slice(); tChart.update('none'); }
+  if(sChart){ sChart.data.labels=labels.slice(); sChart.data.datasets[0].data=sData.slice(); sChart.update('none'); }
+  if(cChart){ cChart.data.labels=labels.slice(); cChart.data.datasets[0].data=tData.slice(); cChart.data.datasets[1].data=hData.slice(); cChart.update('none'); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  THRESHOLD SETTINGS
+// ═══════════════════════════════════════════════════════
+function updateTH() {
+  TH.tw=parseInt(gv('th-tw')||40); TH.tc=parseInt(gv('th-tc')||55);
+  TH.sw=parseInt(gv('th-sw')||2800); TH.sc=parseInt(gv('th-sc')||3200);
+  if($('th-tw-v')) $('th-tw-v').textContent=TH.tw+'°C';
+  if($('th-tc-v')) $('th-tc-v').textContent=TH.tc+'°C';
+  if($('th-sw-v')) $('th-sw-v').textContent=TH.sw;
+  if($('th-sc-v')) $('th-sc-v').textContent=TH.sc;
+  updateMarkers();
+}
+
+function updateMarkers() {
+  if($('tw-mark')) $('tw-mark').textContent=TH.tw+'°C';
+  if($('tc-mark')) $('tc-mark').textContent=TH.tc+'°C';
+  if($('sw-mark')) $('sw-mark').textContent=TH.sw;
+  if($('sc-mark')) $('sc-mark').textContent=TH.sc;
+  if($('stw')) $('stw').textContent=TH.tw+'°C';
+  if($('stc')) $('stc').textContent=TH.tc+'°C';
+  if($('ssw')) $('ssw').textContent=TH.sw;
+  if($('ssc')) $('ssc').textContent=TH.sc;
+}
+
+
+
+// ═══════════════════════════════════════════════════════
+//  ESP32 CONFIG
+// ═══════════════════════════════════════════════════════
+function buildESPConfig() {
+  const c=$('espConfig'); if(!c) return;
+  c.innerHTML=Object.keys(Z).map(z=>`
+    <div class="esp-row">
+      <span class="esp-z">${z}</span>
+      <span class="esp-nm">${Z[z].name.split(' ')[0]}</span>
+      <input class="esp-ip" id="eip-${z}" placeholder="IP or blank" value="${DEVS[z]||''}">
+      <div class="esp-st${DEV_ST[z]==='online'?' online':''}" id="est-${z}"></div>
+    </div>`).join('');
+}
+
+function saveESP() {
+  Object.keys(Z).forEach(z=>{ const i=$('eip-'+z); if(i) DEVS[z]=i.value.trim(); if(DEVS[z]) Z[z].hw=true; });
+  log(Object.values(DEVS).filter(v=>v).length+' device(s) configured','info');
+  fetchAll(); buildESPConfig();
+}
+
+// ═══════════════════════════════════════════════════════
+//  MANUAL CONTROLS (Admin only)
+// ═══════════════════════════════════════════════════════
+function buildCtrlButtons() {
+  const c=$('ctrlButtons'); if(!c) return;
+  if(!CU||!CU.perms.ctrl){ c.innerHTML='<span style="font-size:.7rem;color:var(--t4);font-family:var(--mono)">Manual controls require Administrator access.</span>'; return; }
+  c.innerHTML=`
+    <button class="btn btn-amb" onclick="manualFan()">Toggle Fan</button>
+    <button class="btn btn-blu" onclick="manualPump()">Toggle Pump</button>
+    <button class="btn" onclick="silenceAlarm()">Silence Alarm</button>
+    <button class="btn btn-grn" onclick="releaseOverrides()">Release Overrides</button>
+  `;
+}
+
+async function manualFan() {
+  if (!can('ctrl')) return;
+  fanOverride=true; fanState=!fanState;
+  log(`Fan override: ${fanState?'ON':'OFF'} (by ${CU.badge})`,'info');
+  const ip=DEVS.D;
+  if(ip){ try{ await fetch(`http://${ip}/control`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fanOverride:true,fanState})}); }catch(e){} }
+}
+async function manualPump() {
+  if (!can('ctrl')) return;
+  pumpOverride=true; pumpState=!pumpState;
+  log(`Pump override: ${pumpState?'ON':'OFF'} (by ${CU.badge})`,'info');
+  const ip=DEVS.D;
+  if(ip){ try{ await fetch(`http://${ip}/control`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pumpOverride:true,pumpState})}); }catch(e){} }
+}
+function silenceAlarm() {
+  if (!can('dispatch')) return;
+  log('Alarm silenced by '+CU.badge,'info');
+}
+async function releaseOverrides() {
+  if (!can('ctrl')) return;
+  fanOverride=false; pumpOverride=false;
+  log('Manual overrides released — auto mode restored (by '+CU.badge+')','info');
+  const ip=DEVS.D;
+  if(ip){ try{ await fetch(`http://${ip}/reset`,{method:'POST'}); }catch(e){} }
+}
+async function pushThresholdsToESP32() {
+  if (!can('ctrl')) return;
+  const ip=DEVS.D; if(!ip){ log('No ESP32 IP configured for Zone D','warn'); return; }
+  try {
+    await fetch(`http://${ip}/control`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ thresholds:{tempWarn:TH.tw,tempCrit:TH.tc,smokeWarn:TH.sw,smokeCrit:TH.sc} })
+    });
+    log('Thresholds pushed to ESP32 Zone D','info');
+  } catch(e){ log('Failed to push thresholds: '+e.message,'warn'); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUTO DISPATCH
+// ═══════════════════════════════════════════════════════
+// ── Telegram notification constants ──
+const TG_TOKEN = "8724723261:AAEHh2y3m51U28i0Vl6qn508MCdd8W2YOj4";
+const TG_CHAT  = "7989426790";
+
+function autoDispatch() {
+  const zone=simZone||Object.keys(Z).find(z=>Z[z].status==='fire')||'?';
+  const zd=Z[zone]||{};
+  const ts=new Date().toLocaleString('en-IN');
+  const msg = `🔴 FIRE ALERT\nZone ${zone} — ${zd.name||''}\n🌡 Temp: ${zd.temp||'--'}°C | 💨 Smoke: ${zd.smoke||'--'}\n🕐 Time: ${ts}\n⚡ Suppression ACTIVE`;
+
+  // ── 1. Try backend server (preferred) ──
+  fetch('/api/trigger-alert',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ zone, zd:{temp:zd.temp,smoke:zd.smoke,name:zd.name}, timestamp:ts, level:2 })
+  }).then(r=>r.json()).then(d=>log('✅ Server: Telegram dispatched ('+d.status+')','info')).catch(()=>{
+    log('⚠ Server offline — trying direct Telegram...','warn');
+    // ── 2. Direct Telegram API fallback ──
+    directTelegram(msg);
+  });
+
+  // ── SOUND + VOICE ALERTS ──
+  playAlarmSound();
+  triggerVoiceAlert(`Warning. Fire detected in Zone ${zone}. Immediate action required.`);
+
+  showToast(`🔥 FIRE DETECTED in Zone ${zone} - Alarm Triggered!`);
+  log('🔴 FIRE DETECTED — Telegram & Audio alert dispatched','fire');
+}
+
+function showToast(msg) {
+  let tc = $('toast-container');
+  if(!tc) { tc = document.createElement('div'); tc.id = 'toast-container'; document.body.appendChild(tc); }
+  const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = `<span style="font-weight:600;color:var(--t1)">System Alert</span><br/><span style="font-size:0.8rem;color:var(--t2)">${msg}</span>`;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function playAlarmSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.3);
+    osc.frequency.setValueAtTime(800, ctx.currentTime + 0.6);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+    osc.start();
+    osc.stop(ctx.currentTime + 1.5);
+  } catch(e) { console.log('Audio API blocked'); }
+}
+
+function triggerVoiceAlert(message) {
+  try {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // clear queue
+      const u = new SpeechSynthesisUtterance(message);
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      u.lang = 'en-US';
+      u.volume = 1.0;
+      window.speechSynthesis.speak(u);
+    }
+  } catch(e) {}
+}
+
+async function directTelegram(msg) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: TG_CHAT, text: msg })
+    });
+    const d = await r.json();
+    if(d.ok) log('✅ Direct Telegram: Alert sent successfully','info');
+    else log('❌ Telegram error: '+d.description,'warn');
+  } catch(e) { log('❌ Telegram failed: '+e.message,'warn'); }
+}
+
+
+function showAlertModal() {
+  const zone=simZone||Object.keys(Z).find(z=>Z[z].status==='fire')||'?';
+  const zd=Z[zone]||{};
+  const tgToken = gv('ct-tgtoken')||'';
+  const tgChat  = gv('ct-tgchat')||'';
+  const tgConfigured = tgToken && tgChat;
+  $('alertMdlBody').innerHTML=`
+    <div style="font-size:.85rem;color:var(--red);font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      🔴 Zone ${zone} — ${zd.name||''}
+    </div>
+    <div class="rp-row"><span class="rp-lb">Temperature</span><span class="rp-val" style="color:var(--red)">${(zd.temp||'--')}°C</span></div>
+    <div class="rp-row"><span class="rp-lb">Smoke ADC</span><span class="rp-val" style="color:var(--amb)">${zd.smoke||'--'}</span></div>
+    <div class="rp-row"><span class="rp-lb">Detection Time</span><span class="rp-val">${new Date().toLocaleTimeString('en-IN')}</span></div>
+    <div class="rp-row"><span class="rp-lb">Suppression</span><span class="rp-val" style="color:var(--grn)">ACTIVE</span></div>
+    <div style="margin-top:14px;padding:10px;border-radius:var(--rad);background:${tgConfigured?'var(--grnb)':'var(--ambb)'};border:1px solid ${tgConfigured?'var(--grnbr)':'var(--ambbr)'}">
+      <div style="font-size:.7rem;font-weight:600;color:${tgConfigured?'var(--grn)':'var(--amb)'};font-family:var(--mono);margin-bottom:4px">
+        ${tgConfigured?'✅ TELEGRAM NOTIFICATION SENT':'⚠ TELEGRAM NOT CONFIGURED'}
+      </div>
+      ${tgConfigured
+        ? `<div style="font-size:.68rem;color:var(--t2);font-family:var(--mono)">Alert sent to Chat ID: ${tgChat.substring(0,6)}... via Bot</div>`
+        : `<div style="font-size:.65rem;color:var(--t2);line-height:1.7">
+            To get Telegram alerts when fire is detected:<br>
+            1. Go to <b>Settings → Telegram Setup</b><br>
+            2. Create a bot via <b>@BotFather</b><br>
+            3. Enter Bot Token + Chat ID<br>
+            4. Start <b>node server.js</b> on your PC
+           </div>`
+      }
+    </div>
+    <div style="margin-top:10px;padding:8px;border-radius:var(--rad);background:var(--blub);border:1px solid var(--blubr)">
+      <div style="font-size:.65rem;color:var(--blu);font-family:var(--mono)">
+        📡 Message sent to server.js → server forwards to Telegram.
+        Ensure <code>node server.js</code> is running.
+      </div>
+    </div>
+  `;
+  const evacBtn = $('evacMdlBtn');
+  if (evacBtn) {
+    evacBtn.textContent = `Evacuate Zone ${zone}`;
+    evacBtn.onclick = () => { closeMdl('alertModal'); triggerEvac(zone); };
+  }
+  openMdl('alertModal');
+}
+
+// ═══════════════════════════════════════════════════════
+//  CONTACTS
+// ═══════════════════════════════════════════════════════
+function saveContacts() {
+  CT.tgToken  = gv('ct-tgtoken');
+  CT.tgChat   = gv('ct-tgchat');
+  log('Telegram config saved','info');
+}
+
+function copyTelegramConfig() {
+  const token = gv('ct-tgtoken')||'YOUR_BOT_TOKEN';
+  const chat  = gv('ct-tgchat')||'YOUR_CHAT_ID';
+  const config = `// Add these to your server.js .env or directly:\nTELEGRAM_BOT_TOKEN=${token}\nTELEGRAM_CHAT_ID=${chat}`;
+  navigator.clipboard.writeText(config).then(()=>log('Telegram config copied to clipboard','info')).catch(()=>{
+    prompt('Copy this config to server.js:', config);
+  });
+}
+
+// Detect local IP address
+function detectLocalIP() {
+  const el = document.getElementById('myDeviceIP'); if(!el) return;
+  el.textContent = 'Detecting...';
+  try {
+    const pc = new RTCPeerConnection({iceServers:[]});
+    pc.createDataChannel('');
+    pc.createOffer().then(o=>pc.setLocalDescription(o));
+    pc.onicecandidate = e => {
+      if(!e || !e.candidate) return;
+      const m = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(e.candidate.candidate);
+      if(m && !m[1].startsWith('169')) { el.textContent = m[1]; pc.close(); }
+    };
+    setTimeout(()=>{ if(el.textContent==='Detecting...') el.textContent='Check via cmd > ipconfig'; },3000);
+  } catch(e) { el.textContent = 'Use cmd > ipconfig'; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  PEOPLE ANIMATION (floor map)
+// ═══════════════════════════════════════════════════════
+const BOUNDS={A:{x1:30,y1:30,x2:250,y2:450},D:{x1:250,y1:30,x2:450,y2:230},B:{x1:450,y1:30,x2:870,y2:230},E:{x1:250,y1:230,x2:450,y2:450},C:{x1:450,y1:230,x2:870,y2:450}};
+const ADJS={ A:['D','E'], D:['A','B','E'], B:['D','C'], E:['A','D','C'], C:['B','E'] };
+const DOORS={
+  'A-D':{x:250,y:130}, 'D-A':{x:250,y:130}, 'A-E':{x:250,y:340}, 'E-A':{x:250,y:340},
+  'D-B':{x:450,y:130}, 'B-D':{x:450,y:130}, 'E-C':{x:450,y:340}, 'C-E':{x:450,y:340},
+  'D-E':{x:350,y:230}, 'E-D':{x:350,y:230}, 'B-C':{x:660,y:230}, 'C-B':{x:660,y:230}
+};
+const EXIT_WPS={A:[{x:30,y:240}],B:[{x:450,y:130},{x:250,y:130},{x:30,y:240}],C:[{x:450,y:340},{x:350,y:450}],D:[{x:350,y:450}],E:[{x:350,y:450}]};
+
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function inB(z){ const b=BOUNDS[z]; return {x:rnd(b.x1+15,b.x2-15),y:rnd(b.y1+15,b.y2-15)}; }
+function initPeople(){
+  people = [];
+  Object.keys(Z).forEach(z=> { Z[z].people = 0; });
+  for(let i=0; i<15; i++) {
+    const zs = Object.keys(Z);
+    const z = zs[Math.floor(Math.random()*zs.length)];
+    const p=inB(z); 
+    Z[z].people++;
+    people.push({zone:z, x:p.x, y:p.y, wait:Math.floor(Math.random()*100)+40, route:[], evac:false, wp:0, done:false});
+  }
+  renderPeople();
+}
+function renderPeople(){
+  const g=$('pplLayer'); if(!g) return; g.innerHTML='';
+  people.forEach(p=>{
+    if(p.done) return;
+    const st=Z[p.zone]?Z[p.zone].status:'safe';
+    const col=p.evac?'#3b82f6':st==='fire'?'#f43f3f':st==='warn'?'#f59e0b':'#22d3a0';
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r','4');
+    c.setAttribute('fill',col); c.setAttribute('opacity','.85');
+    g.appendChild(c);
+  });
+}
+function startPeopleAnim(){
+  if(pplTimer) clearInterval(pplTimer);
+  pplTimer=setInterval(()=>{
+    let changed = false;
+    people.forEach(p=>{
+      if(p.done) return;
+      changed = true;
+
+      // Auto-evacuate anyone in a FIRE zone — immediately switch to evac mode
+      if (!p.evac && Z[p.zone] && Z[p.zone].status === 'fire') {
+        p.evac = true;
+        p.wp = 0;
+      }
+
+      if(p.evac){
+        // ALLOW EXIT FROM DANGER ZONES: use predefined EXIT waypoints
+        const wps=EXIT_WPS[p.zone]; if(!wps||p.wp>=wps.length){p.done=true;return;}
+        const w=wps[p.wp]; const dx=w.x-p.x,dy=w.y-p.y,d=Math.sqrt(dx*dx+dy*dy);
+        if(d<5) p.wp++; else {p.x+=dx/d*2.8;p.y+=dy/d*2.8;}
+      } else {
+        if(p.wait>0){p.wait--;} else {
+          if (p.route && p.route.length > 0) {
+            const tgt = p.route[0];
+            const dx=tgt.x-p.x, dy=tgt.y-p.y, d=Math.sqrt(dx*dx+dy*dy);
+            if(d<4){
+              p.route.shift();
+              if (p.route.length === 0) {
+                 p.wait = Math.floor(Math.random()*150)+80;
+                 Z[p.zone].people--;
+                 p.zone = p.nextZone;
+                 Z[p.zone].people++;
+                 updateZoneList();
+              }
+            } else { p.x+=dx/d*1.2; p.y+=dy/d*1.2; }
+          } else {
+            const adjs = ADJS[p.zone];
+            // PREVENT ENTRY INTO DANGER ZONES: only move to safe zones
+            // Exception: if current zone is also dangerous, allow exiting to any adjacent zone
+            const currentDangerous = Z[p.zone] && Z[p.zone].status !== 'safe';
+            const validAdjs = currentDangerous
+              ? adjs  // Allow exit from danger zone to ANY adjacent zone
+              : adjs.filter(z => Z[z].status === 'safe'); // Block entry into danger zones
+
+            if (validAdjs.length > 0) {
+              const nZ = validAdjs[Math.floor(Math.random()*validAdjs.length)];
+              p.nextZone = nZ;
+              const door = DOORS[p.zone+'-'+nZ];
+              const dest = inB(nZ);
+              p.route = [door, dest];
+            } else {
+              // All adjacent zones blocked — wait in place
+              p.wait = 60;
+            }
+          }
+        }
+      }
+    });
+    if(changed) renderPeople();
+  },60);
+}
+
+// ═══════════════════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════════════════
+function openMdl(id){ const m=$(id); if(m) m.classList.add('open'); }
+function closeMdl(id){ const m=$(id); if(m) m.classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════
+//  CHATBOT (Guardian AI)
+// ═══════════════════════════════════════════════════════
+function openChat(){ $('chatbot').classList.add('open'); $('chatFab').style.display='none'; }
+function closeChat(){ $('chatbot').classList.remove('open'); $('chatFab').style.display='flex'; }
+
+const CHAT_RESPONSES = {
+  'temperature': ()=>`Current temperature: ${GD.temperature.toFixed(1)}°C. Warning threshold: ${TH.tw}°C, Critical: ${TH.tc}°C.`,
+  'smoke':       ()=>`Current smoke ADC reading: ${GD.smoke}. Warning: ${TH.sw}, Critical: ${TH.sc}.`,
+  'zone':        ()=>`Zone status — ${Object.keys(Z).map(z=>`Zone ${z}: ${Z[z].status.toUpperCase()}`).join(', ')}.`,
+  'fire':        ()=>{ const f=Object.keys(Z).filter(z=>Z[z].status==='fire'); return f.length?`FIRE ALERT in Zone ${f.join(', ')}! Activate evacuation immediately.`:'No fire detected. All zones nominal.'; },
+  'evac':        ()=>`Evacuation routes: ${Object.keys(Z).map(z=>`Zone ${z}→${EVAC[z]}`).join('; ')}.`,
+  'fan':         ()=>`Fan status — ${Object.keys(Z).map(z=>Z[z].fans.map(f=>`${f}: ${Z[z].status!=='safe'?'ON':'OFF'}`).join(', ')).filter(v=>v).join(' | ')}.`,
+  'pump':        ()=>`Pump status — ${Object.keys(Z).map(z=>Z[z].pumps.map(p=>`${p}: ${Z[z].status==='fire'?'ON':'OFF'}`).join(', ')).filter(v=>v).join(' | ')}.`,
+  'status':      ()=>{ let f=0,w=0,s=0; Object.values(Z).forEach(zd=>{if(zd.status==='fire')f++;else if(zd.status==='warn')w++;else s++;}); return `System status: ${f} fire zone(s), ${w} warning, ${s} safe. Total alerts: ${GD.alerts}.`; },
+  'default':     ()=>'I can help with: zone status, temperature, smoke levels, evacuation routes, fan/pump status, or general system status. What would you like to know?'
+};
+
+function sendChat() {
+  const inp=$('chatIn'); const msg=inp.value.trim(); if(!msg) return;
+  addMsg(msg,'user');
+  inp.value='';
+  const key=Object.keys(CHAT_RESPONSES).find(k=>msg.toLowerCase().includes(k))||'default';
+  setTimeout(()=>addMsg(CHAT_RESPONSES[key](),'bot'),400);
+}
+
+function addMsg(text,who) {
+  const b=$('chatBody');
+  const d=document.createElement('div'); d.className='chat-msg '+who; d.textContent=text;
+  b.appendChild(d); b.scrollTop=b.scrollHeight;
+}
+</script>
+<script>
+// ══ PWA: Service Worker Registration ══
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => { console.log('FireGuard SW registered, scope:', reg.scope); })
+      .catch(err => { console.warn('SW registration failed:', err); });
+  });
+}
+
+// ══ PWA: Install Prompt ══
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredInstall = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.classList.add('visible');
+});
+window.addEventListener('appinstalled', () => {
+  _deferredInstall = null;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.classList.remove('visible');
+  console.log('FireGuard PWA installed successfully');
+});
+function installPWA() {
+  if (!_deferredInstall) {
+    alert('To install: open in Chrome → tap ⋮ → "Add to Home Screen" or "Install App"');
+    return;
+  }
+  _deferredInstall.prompt();
+  _deferredInstall.userChoice.then(c => {
+    if (c.outcome === 'accepted') console.log('FireGuard PWA install accepted');
+    _deferredInstall = null;
+  });
+}
+
+// ══ Sidebar Toggle (Hamburger) ══
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sbOverlay');
+  if (!sb) return;
+  sb.classList.toggle('sb-open');
+  if (ov) ov.classList.toggle('open');
+}
+function closeSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sbOverlay');
+  if (sb) sb.classList.remove('sb-open');
+  if (ov) ov.classList.remove('open');
+}
+// Close sidebar on nav item click (mobile)
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    if (window.innerWidth <= 768) closeSidebar();
+  });
+});
+</script>
+
+</body>
+</html>
